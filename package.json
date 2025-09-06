@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@fontsource/kapakana": "^5.2.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "mysql": "^2.18.1"
