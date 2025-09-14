@@ -94,7 +94,7 @@ export default function Createacc() {
 
               <button
                 type="button"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/login")}
                 className="block w-full h-[35px] mt-3 rounded-full border border-[#5B4220] bg-[#F5EFEF] text-[#332601] text-center leading-[35px] font-medium cursor-pointer"
               >
                 Back to login

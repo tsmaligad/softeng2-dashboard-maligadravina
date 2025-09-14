@@ -3,6 +3,26 @@ import Stickybar from "./Stickybar";
 import hero from "../assets/homepagepic.png";
 import fp1 from "../assets/fp1.png";
 import fp2 from "../assets/fp2.png";
+import Footer from "./Footer";
+
+const faqs = [
+  {
+    q: "How can I pay for my order?",
+    a: "We accept GCash, major credit/debit cards, and bank transfer. For COD, please message support first to confirm availability in your area."
+  },
+  {
+    q: "How much is the delivery fee?",
+    a: "Delivery fees vary by location and courier rates. You’ll see the exact fee at checkout after entering your address."
+  },
+  {
+    q: "Can I be the one to arrange for pickup?",
+    a: "Yes. Choose “Pick up / Own courier” at checkout and include rider details in the notes. We’ll message you when your order is ready."
+  },
+  {
+    q: "How do I track my order?",
+    a: "Once shipped, you’ll receive a tracking link via email/SMS. You can also check status in your account under Orders."
+  },
+];
 
 const featuredProducts = [
   {
@@ -67,8 +87,6 @@ const Homepage = () => {
   return (
     <div className="w-full min-h-screen bg-white">
       <Stickybar />
-
-      {/* Hero */}
       <section id="home">
         <img
           src={hero}
@@ -76,8 +94,6 @@ const Homepage = () => {
           className="w-full h-screen object-cover block"
         />
       </section>
-
-      {/* Featured products title bar */}
       <section className="bg-[#4A3600]">
         <div className="h-[95px] flex items-center justify-center">
           <h2
@@ -88,32 +104,27 @@ const Homepage = () => {
           </h2>
         </div>
       </section>
-
-      {/* Featured products grid */}
       <section className="bg-[#F5EFEF] py-10 px-6 md:px-16">
         <div className="grid grid-cols-4 gap-8">
           {featuredProducts.map((p) => (
             <article key={p.id}>
               <figure>
-  <img
-    src={p.img}
-    alt={p.alt}
-    className="w-full h-auto object-cover border-[3px] border-[#5B4220]"
-  />
-  <figcaption className="p-2 text-left">
-    <h3 className="text-sm text-[#332601]">{p.name}</h3>
-    <p className="text-sm font-semibold text-[#332601]">
-      {p.price}
-    </p>
-  </figcaption>
-</figure>
-
+                <img
+                  src={p.img}
+                  alt={p.alt}
+                  className="mt-[90px] w-full h-auto object-cover border-[3px] border-[#5B4220]"
+                />
+                <figcaption className="p-2 text-left">
+                  <h3 className="text-sm text-[#332601]">{p.name}</h3>
+                  <p className="text-sm font-semibold text-[#332601]">
+                    {p.price}
+                  </p>
+                </figcaption>
+              </figure>
             </article>
           ))}
         </div>
-
-        {/* View all */}
-        <div className="mt-8 flex justify-center">
+        <div className="mt-[40px] mb-[90px] flex justify-center">
           <a
             href="#view-all"
             className="text-sm text-[#332601] underline-offset-2 hover:underline"
@@ -121,7 +132,57 @@ const Homepage = () => {
             View all
           </a>
         </div>
+        <section className="bg-[#4A3600]">
+          <div className="h-[95px] flex items-center justify-center">
+            <h2
+              className="m-0 text-lg font-semibold text-white !text-white"
+              style={{ color: "white" }}
+            >
+              Frequently Asked Questions
+            </h2>
+          </div>
+        </section>
+        <div className="mt-8 max-w-[860px] mx-auto px-4">
+          {faqs.map((item, idx) => (
+            <details
+              key={idx}
+              className={[
+                "group bg-[#FBF3F3] border-b border-[#decdb9]",
+                idx > 0 ? "mt-10" : ""
+              ].join(" ")}
+            >
+              <summary
+                className="list-none [&::-webkit-details-marker]:hidden cursor-pointer select-none
+                           flex items-center justify-between px-8 py-6 text-[#1f1a14]"
+              >
+                <span className="text-[18px] md:text-[20px] leading-7 font-medium">
+                  {item.q}
+                </span>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="inline-block shrink-0 transition-transform duration-200 group-open:rotate-180 text-[#1f1a14]"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 9l6 6 6-6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </summary>
+              <div className="px-8 pb-6 text-[15px] md:text-[16px] text-[#332601]/90">
+                {item.a}
+              </div>
+            </details>
+          ))}
+        </div>
       </section>
+      <Footer />
     </div>
   );
 };

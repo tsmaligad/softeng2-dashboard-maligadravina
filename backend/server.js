@@ -1,4 +1,4 @@
-// backend/server.js — full API (CommonJS, Express 5 safe)
+// backend/server.js — Express API using USERS table only
 require('dotenv').config();
 
 const express = require('express');
@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
+
 app.use(express.json());
 app.use(
   cors({
@@ -26,40 +27,31 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
-/* ---------------- Auth helpers ---------------- */
+/* ---------------- Helpers ---------------- */
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+
 function signToken(user) {
   return jwt.sign(
-    { sub: user.id, name: user.name, role: user.role },
-    process.env.JWT_SECRET,
+    { userId: user.id, role: user.role },
+    JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
 
-function requireAuth(req, res, next) {
+function getBearerToken(req) {
   const auth = req.headers.authorization || '';
   const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (!m) return res.status(401).json({ error: 'Missing token' });
-  try {
-    req.user = jwt.verify(m[1], process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
+  return m ? m[1] : null;
 }
 
-/* ---------------- Basic health routes ---------------- */
+/* ---------------- Health ---------------- */
 app.get('/', (_req, res) => res.json({ message: 'SweetTreats backend is alive!' }));
-
 app.get('/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, time: Date.now() }));
-
-
-// DB health: confirms DB + admins table
 app.get('/health/db', async (_req, res) => {
   try {
-    const [rows] = await pool.query('SELECT COUNT(*) AS count FROM admins');
-    res.json({ ok: true, admins: rows[0].count });
+    const [rows] = await pool.query('SELECT COUNT(*) AS count FROM users');
+    res.json({ ok: true, users: rows[0].count });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: e.message });
@@ -68,103 +60,208 @@ app.get('/health/db', async (_req, res) => {
 
 /* ---------------- AUTH ---------------- */
 
-// (Optional) seed/register an admin (use once to create the first admin)
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { name, email, password, role = 'admin' } = req.body || {};
-    if (!name || !email || !password || password.length < 6) {
-      return res.status(422).json({ error: 'Invalid input' });
-    }
-    const hash = await bcrypt.hash(password, 10);
-    await pool.execute(
-      'INSERT INTO admins (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [name, email, hash, role]
-    );
-    res.status(201).json({ success: true });
-  } catch (e) {
-    if (e && e.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Email already exists' });
-    }
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// LOGIN -> returns { success, token, user }
-app.post('/api/auth/login', async (req, res) => {
+// POST /login
+app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(422).json({ error: 'Invalid input' });
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password required' });
+    }
 
     const [rows] = await pool.execute(
-      'SELECT id, name, email, role, password_hash FROM admins WHERE email = ?',
+      'SELECT id, name, email, role, password_hash FROM users WHERE email = ? LIMIT 1',
       [email]
     );
-    const user = rows[0];
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    const user = rows?.[0];
+    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    const ok = await bcrypt.compare(password, user.password_hash || '');
+    if (!ok) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
     const token = signToken(user);
+    res.json({ success: true, token, role: user.role, name: user.name, email: user.email });
+  } catch (e) {
+    console.error('LOGIN ERROR', e);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /admin-login
+// POST /admin-login
+app.post('/admin-login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    console.log('[admin-login] body.email =', JSON.stringify(email));
+    console.log('[admin-login] body.password length =', password ? password.length : 0);
+
+    const [rows] = await pool.execute(
+      "SELECT id, name, email, role, password_hash FROM users WHERE email = ? AND role = 'admin' LIMIT 1",
+      [email]
+    );
+    console.log('[admin-login] rows.length =', rows.length);
+    if (rows.length) {
+      const u = rows[0];
+      console.log('[admin-login] found user →', {
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        hash_len: (u.password_hash || '').length,
+        email_hex: Buffer.from(u.email, 'utf8').toString('hex'),
+      });
+      const ok = await bcrypt.compare(password, u.password_hash || '');
+      console.log('[admin-login] bcrypt.compare =', ok);
+      if (!ok) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
+      const token = signToken(u);
+      return res.json({ success: true, token, role: u.role, name: u.name, email: u.email });
+    }
+
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  } catch (e) {
+    console.error('ADMIN LOGIN ERROR', e);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+// GET /me
+// server.js /me
+// GET /me
+app.get('/me', async (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return res.json({ success: false });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // fetch the full user from DB
+    const [rows] = await pool.query(
+      "SELECT id, name, email, role FROM users WHERE id = ? LIMIT 1",
+      [decoded.userId]
+    );
+
+    if (!rows.length) return res.json({ success: false });
+
+    const u = rows[0];
     res.json({
       success: true,
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user_id: u.id,
+      role: u.role,
+      email: u.email,
+      name: u.name,
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    console.error("ME ERROR", e);
+    res.json({ success: false });
   }
 });
 
-/* ---------------- ADMINS (protected) ---------------- */
 
-// current user info
-app.get('/api/admins/me', requireAuth, async (req, res) => {
+
+// POST /logout
+app.post('/logout', (_req, res) => res.json({ success: true }));
+
+/* ---------------- Middleware ---------------- */
+function requireAuth(req, res, next) {
   try {
-    const [rows] = await pool.execute(
-      'SELECT id, name, email, role, created_at FROM admins WHERE id = ?',
-      [req.user.sub]
-    );
-    res.json(rows[0] || null);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ message: "Unauthorized" });
   }
-});
+}
 
-// list admins
-app.get('/api/admins', requireAuth, async (_req, res) => {
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  next();
+}
+
+/* ---------------- Users CRUD ---------------- */
+
+// GET /users?q=
+app.get('/users', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const { q = "" } = req.query;
+    const like = `%${q}%`;
     const [rows] = await pool.query(
-      'SELECT id, name, email, role, created_at FROM admins ORDER BY id DESC'
+      `SELECT id, name, email, role, is_active, created_at
+       FROM users
+       WHERE name LIKE ? OR email LIKE ?
+       ORDER BY created_at DESC
+       LIMIT 500`,
+      [like, like]
     );
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ message: "Failed to fetch users" });
   }
 });
 
-// create admin
-app.post('/api/admins', requireAuth, async (req, res) => {
+// POST /users
+app.post('/users', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, email, password, role = 'admin' } = req.body || {};
-    if (!name || !email || !password) return res.status(422).json({ error: 'Invalid input' });
-
-    const [exists] = await pool.execute('SELECT id FROM admins WHERE email = ?', [email]);
-    if (exists.length) return res.status(409).json({ error: 'Email already exists' });
-
+    const { name, email, password, role = "user", is_active = 1 } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, password required" });
+    }
     const hash = await bcrypt.hash(password, 10);
-    const [result] = await pool.execute(
-      'INSERT INTO admins (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [name, email, hash, role]
+    const [result] = await pool.query(
+      `INSERT INTO users (name, email, password_hash, role, is_active)
+       VALUES (?, ?, ?, ?, ?)`,
+      [name, email, hash, role, Number(is_active) ? 1 : 0]
     );
-    res.json({ success: true, id: result.insertId });
+    res.status(201).json({ id: result.insertId, name, email, role, is_active: !!is_active });
+  } catch (e) {
+    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: "Email already exists" });
+    console.error(e);
+    res.status(500).json({ message: "Failed to create user" });
+  }
+});
+
+// PATCH /users/:id
+app.patch('/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, password, role, is_active } = req.body || {};
+
+    const fields = [];
+    const values = [];
+
+    if (name != null) { fields.push("name = ?"); values.push(name); }
+    if (email != null) { fields.push("email = ?"); values.push(email); }
+    if (role != null) { fields.push("role = ?"); values.push(role); }
+    if (is_active != null) { fields.push("is_active = ?"); values.push(Number(is_active) ? 1 : 0); }
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      fields.push("password_hash = ?");
+      values.push(hash);
+    }
+    if (fields.length === 0) return res.status(400).json({ message: "No changes" });
+
+    values.push(id);
+    await pool.query(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`, values);
+    res.json({ success: true });
+  } catch (e) {
+    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: "Email already exists" });
+    console.error(e);
+    res.status(500).json({ message: "Failed to update user" });
+  }
+});
+
+// DELETE /users/:id
+app.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`DELETE FROM users WHERE id = ?`, [id]);
+    res.json({ success: true });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ message: "Failed to delete user" });
   }
 });
 

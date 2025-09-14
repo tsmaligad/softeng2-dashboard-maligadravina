@@ -1,40 +1,51 @@
+// frontend/src/components/LoginPage.jsx
 import React, { useState, useEffect } from "react";
-import Stickybar from "./Stickybar.jsx"; 
-import { useNavigate } from "react-router-dom";
-import { api } from "../utils/api"; 
+import Stickybar from "./Stickybar.jsx";
+import { api } from "../utils/api";
+import { Link, useNavigate } from "react-router-dom";
 
-const LoginPage = () => {
+export default function AdminLoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in (check backend session)
   useEffect(() => {
-    (async () => {
-      try {
-        const me = await api.adminMe();
-        if (me) navigate("/dashboard", { replace: true });
-      } catch {
-        // not logged in, do nothing
-      }
-    })();
-  }, [navigate]);
+    console.log("[LoginPage] mounted");
+  }, []);
 
-  function onChange(e) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-  }
-
-  async function onSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    try {
-      await api.adminLogin({ email: form.email, password: form.password });
-      navigate("/dashboard", { replace: true });
+    console.log("[LoginPage] submit fired", {
+      email,
+      passwordLen: password.length,
+      location: window.location.href,
+    });
 
+    try {
+      console.log("[LoginPage] calling api.adminLogin…");
+      const data = await api.adminLogin({ email, password });
+
+      console.log("[LoginPage] api.adminLogin returned:", data);
+      const saved = localStorage.getItem("token");
+      console.log("[LoginPage] localStorage token length:", saved ? saved.length : 0);
+
+      const success = !!data?.success || !!data?.token || !!saved;
+      if (!success) {
+        console.warn("[LoginPage] backend returned no success/token");
+        setError(data?.message || data?.error || "Invalid email or password.");
+        return;
+      }
+
+      // ✅ go to homepage after successful login (admin or not)
+      navigate("/");
     } catch (err) {
-      setError(err.message || "Login failed.");
+      console.error("[LoginPage] error from api.adminLogin:", err);
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -45,7 +56,7 @@ const LoginPage = () => {
       <Stickybar />
 
       <div className="pt-[72px]">
-        <section className="bg-[#4A3600] h-[90px] mb-[70px]"></section>
+        <section className="bg-[#4A3600] h-[90px] mb-[70px]" />
 
         <main className="flex items-start justify-center">
           <div className="w-full max-w-[560px] mx-auto px-6">
@@ -53,65 +64,58 @@ const LoginPage = () => {
               Login
             </h1>
 
-            <form className="w-full" onSubmit={onSubmit}>
+            <form className="w-full" onSubmit={handleSubmit} noValidate>
               <div className="space-y-[10px]">
                 <input
-                  name="email"
                   type="email"
                   placeholder="Email"
-                  value={form.email}
-                  onChange={onChange}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
                   className="w-full h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
-
                 <input
-                  name="password"
                   type="password"
                   placeholder="Password"
-                  value={form.password}
-                  onChange={onChange}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
                   className="w-full h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
               </div>
 
-              {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+              {error && (
+                <p className="mt-3 text-sm text-red-600" aria-live="polite">
+                  {error}
+                </p>
+              )}
 
-              <div className="mt-[40px] flex justify-between items-center mb-[15px]">
-  <a href="/admin-login" className="text-sm text-[#8b7760]">
-    Admin Login
-  </a>
-  <a href="/forgot-password" className="text-sm text-[#8b7760]">
-    Forgot your password?
-  </a>
-</div>
-
-
-<button
-  type="submit"
-  disabled={loading}
-  className="w-full h-[35px] mb-[15px] mt-6 rounded-full border border-[#5B4220] bg-[#F8B8B8] text-base font-medium text-[#332601]"
->
-  {loading ? "Signing in…" : "Sign in"}
-</button>
-
+              <div className="mt-[40px] flex justify-end items-center mb-[15px]">
+                <a href="/forgot-password" className="text-sm text-[#8b7760] no-underline">
+                  Forgot your password?
+                </a>
+              </div>
 
               <button
-                type="button"
-                onClick={() => navigate("/create-account")}
-                className="w-full h-[35px] mt-3 rounded-full border border-[#5B4220] bg-[#F5EFEF] text-base font-medium text-[#332601] cursor-pointer"
+                type="submit"
+                disabled={loading}
+                className="w-full h-[35px] mb-[15px] mt-6 rounded-full border border-[#5B4220] bg-[#F8B8B8] text-base font-medium text-[#332601] disabled:opacity-70"
               >
-                Create new account
+                {loading ? "Signing in…" : "Sign in"}
               </button>
+
+              <Link
+                to="/create-account"
+                className="inline-flex w-full h-[35px] items-center justify-center rounded-full border border-[#5B4220] bg-white text-base no-underline font-medium text-[#332601] hover:bg-[#FDF2F2] transition"
+              >
+                Create account
+              </Link>
             </form>
           </div>
         </main>
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}
