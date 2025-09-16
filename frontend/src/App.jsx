@@ -12,7 +12,7 @@ import ProductsPage from './components/Productspage.jsx';
 import ContactPage from './components/Contactpage.jsx';
 import FaqPage from './components/FaqPage.jsx';
 import Inventory from './components/Inventory.jsx';
-
+import RawMaterials from './components/RawMaterials.jsx';
 
 function App() {
   return (
@@ -33,6 +33,12 @@ function App() {
         <Route path="/inventory" element={
           <AdminRoute>
             <Inventory />
+          </AdminRoute>
+        }/>
+
+<Route path="/rawmaterials" element={
+          <AdminRoute>
+            <RawMaterials />
           </AdminRoute>
         }/>
         <Route path="/userlist" element={

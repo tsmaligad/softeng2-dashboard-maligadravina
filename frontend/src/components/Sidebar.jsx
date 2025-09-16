@@ -152,6 +152,23 @@ const Sidebar = () => {
   </NavLink>
 </li>
 
+{/* RAW MATERIALS */}
+<li className="flex justify-start">
+  <NavLink
+    to="/rawmaterials"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={inventorylogo}
+      alt="Raw Materials"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]">Raw Materials</span>
+  </NavLink>
+</li>
+
 {/* BALIK TO HOMEPAGE */}
 <li className="flex justify-start">
   <NavLink

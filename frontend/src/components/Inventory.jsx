@@ -1,64 +1,105 @@
-import React, { useState } from "react";
-import Sidebar from "../components/Sidebar"; // ✅ import sidebar
+// src/components/Inventory.jsx
+import React, { useEffect, useState } from "react";
+import Sidebar from "../components/Sidebar";
 
-const Inventory = ({ rawMaterials = [] }) => {
+const API_BASE = import.meta?.env?.VITE_API_BASE || "http://localhost:8080";
+
+const Inventory = () => {
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState({ rawMaterialId: "", quantity: "" });
   const [editingItem, setEditingItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [rawMaterials, setRawMaterials] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  // Load raw materials + inventory on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/raw-materials`);
+        const mats = await res.json();
+        setRawMaterials(Array.isArray(mats) ? mats : []);
+      } catch (e) {
+        console.error("Failed to load raw materials:", e);
+      }
+    })();
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/inventory`);
+        const inv = await res.json();
+        setItems(Array.isArray(inv) ? inv : []);
+      } catch (e) {
+        console.error("Failed to load inventory:", e);
+      }
+    })();
+  }, []);
 
   // Add or Update item
-  const handleAddItem = (e) => {
+  const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItem.rawMaterialId || !newItem.quantity) return;
 
     const selectedMaterial = rawMaterials.find(
       (mat) => mat.id === parseInt(newItem.rawMaterialId, 10)
     );
-
     if (!selectedMaterial) return;
 
     if (editingItem) {
-      setItems(
-        items.map((item) =>
+      // (Optional) add a PATCH route to persist edits; for now, local update only
+      setItems((prev) =>
+        prev.map((item) =>
           item.id === editingItem.id
-            ? {
-                ...item,
-                rawMaterialId: selectedMaterial.id,
-                name: selectedMaterial.name,
-                brand: selectedMaterial.brand,
-                units: selectedMaterial.units,
-                price: selectedMaterial.price,
-                status: selectedMaterial.status,
-                quantity: parseInt(newItem.quantity, 10),
-              }
+            ? { ...item, quantity: parseInt(newItem.quantity, 10) }
             : item
         )
       );
       setEditingItem(null);
-    } else {
-      const newEntry = {
-        id: items.length + 1,
-        rawMaterialId: selectedMaterial.id,
-        name: selectedMaterial.name,
-        brand: selectedMaterial.brand,
-        units: selectedMaterial.units,
-        price: selectedMaterial.price,
-        status: selectedMaterial.status,
-        quantity: parseInt(newItem.quantity, 10),
-      };
-      setItems([...items, newEntry]);
+      setNewItem({ rawMaterialId: "", quantity: "" });
+      return;
     }
 
-    setNewItem({ rawMaterialId: "", quantity: "" });
+    try {
+      setSaving(true);
+      // Persist in DB
+      const res = await fetch(`${API_BASE}/api/inventory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rawMaterialId: selectedMaterial.id,
+          quantity: parseInt(newItem.quantity, 10),
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("POST /api/inventory failed:", res.status, await res.text());
+        alert("Failed to add item. Check console for details.");
+        return;
+      }
+
+      // Re-fetch inventory from DB so UI matches MySQL
+      const invRes = await fetch(`${API_BASE}/api/inventory`);
+      if (!invRes.ok) {
+        console.error("GET /api/inventory failed:", invRes.status, await invRes.text());
+        alert("Saved, but failed to refresh list.");
+        return;
+      }
+      const inv = await invRes.json();
+      setItems(Array.isArray(inv) ? inv : []);
+    } catch (e) {
+      console.error("Failed to add inventory item:", e);
+      alert(e.message);
+    } finally {
+      setSaving(false);
+      setNewItem({ rawMaterialId: "", quantity: "" });
+    }
   };
 
-  // Delete
   const handleDelete = (id) => {
+    // (Optional) add DELETE /api/inventory/:id in backend to persist deletes
     setItems(items.filter((item) => item.id !== id));
   };
 
-  // Edit
   const handleEdit = (item) => {
     setEditingItem(item);
     setNewItem({
@@ -67,31 +108,26 @@ const Inventory = ({ rawMaterials = [] }) => {
     });
   };
 
-  // Filter items
   const filteredItems = items.filter(
     (item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.id.toString().includes(searchQuery)
+      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.id?.toString().includes(searchQuery)
   );
 
-  // Format price in PHP
   const formatPeso = (value) =>
     new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
-    }).format(value);
+    }).format(value ?? 0);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* ✅ Sidebar imported */}
       <Sidebar />
 
-      {/* Main content */}
       <main className="flex-1 p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Inventory</h1>
 
-        {/* Search Bar */}
         <div className="mb-6">
           <input
             type="text"
@@ -102,7 +138,6 @@ const Inventory = ({ rawMaterials = [] }) => {
           />
         </div>
 
-        {/* Add/Edit Item Form */}
         <form
           onSubmit={handleAddItem}
           className="bg-white shadow-md rounded-lg p-4 mb-6 flex gap-4 flex-wrap"
@@ -138,13 +173,13 @@ const Inventory = ({ rawMaterials = [] }) => {
 
           <button
             type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            disabled={saving}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-60"
           >
-            {editingItem ? "Update" : "Add"}
+            {editingItem ? "Update" : saving ? "Saving…" : "Add"}
           </button>
         </form>
 
-        {/* Inventory Table */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>

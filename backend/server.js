@@ -273,55 +273,165 @@ app.listen(PORT, () => {
 
 /* ---------------- RAW MATERIALS ---------------- */
 
-// Get all raw materials
-app.get("/api/raw-materials", async (req, res) => {
+app.get("/api/raw-materials", async (_req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM raw_materials");
+    const [rows] = await pool.query("SELECT * FROM raw_materials ORDER BY id ASC");
     res.json(rows);
   } catch (e) {
+    console.error("GET /api/raw-materials error:", e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Add raw material
+// POST new raw material
 app.post("/api/raw-materials", async (req, res) => {
   try {
-    const { name, brand, description, units, price, status } = req.body;
+    const { name, brand, description, units, price, status } = req.body || {};
+    if (!name || !brand || !units || price == null) {
+      return res.status(400).json({ error: "name, brand, units, price are required" });
+    }
     const [result] = await pool.execute(
-      "INSERT INTO raw_materials (name, brand, description, units, price, status) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, brand, description, units, price, status]
+      `INSERT INTO raw_materials (name, brand, description, units, price, status)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, brand, description || "", units, Number(price), status || "Available"]
     );
-    res.json({ id: result.insertId, ...req.body });
+    const [rows] = await pool.query(
+      `SELECT id, name, brand, description, units, price, status, created_at
+         FROM raw_materials
+         WHERE id = ?`,
+      [result.insertId]
+    );
+    res.json(rows[0]);
   } catch (e) {
+    console.error("POST /api/raw-materials error:", e);
     res.status(500).json({ error: e.message });
   }
 });
 
-/* ---------------- INVENTORY ---------------- */
-
-// Get inventory with raw material details
-app.get("/api/inventory", async (req, res) => {
+// GET /api/inventory  → joined with raw_materials
+app.get("/api/inventory", async (_req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT i.id, i.quantity, r.id AS rawMaterialId, r.name, r.brand, r.units, r.price, r.status
+      SELECT
+        i.id,
+        i.raw_material_id AS rawMaterialId,
+        i.quantity,
+        i.created_at,
+        r.name,
+        r.brand,
+        r.units,
+        r.price,
+        r.status
       FROM inventory i
-      JOIN raw_materials r ON i.raw_material_id = r.id
+      JOIN raw_materials r ON r.id = i.raw_material_id
+      ORDER BY i.id ASC
     `);
     res.json(rows);
   } catch (e) {
+    console.error("GET /api/inventory error:", e);
     res.status(500).json({ error: e.message });
   }
 });
+
+// PUT /api/raw-materials/:id
+app.put("/api/raw-materials/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, brand, description, units, price, status } = req.body;
+
+    await pool.query(
+      `UPDATE raw_materials
+       SET name = ?, brand = ?, description = ?, units = ?, price = ?, status = ?
+       WHERE id = ?`,
+      [name, brand, description, units, price, status, id]
+    );
+
+    res.json({ id, name, brand, description, units, price, status });
+  } catch (e) {
+    console.error("PUT /api/raw-materials error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/raw-materials/:id
+app.delete("/api/raw-materials/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM raw_materials WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("DELETE /api/raw-materials error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+
+
+// POST /api/inventory
+app.post("/api/inventory", async (req, res) => {
+  try {
+    const { rawMaterialId, quantity } = req.body || {};
+    if (!rawMaterialId || !quantity) {
+      return res.status(400).json({ error: "rawMaterialId and quantity are required" });
+    }
+    const [result] = await pool.execute(
+      `INSERT INTO inventory (raw_material_id, quantity) VALUES (?, ?)`,
+      [rawMaterialId, quantity]
+    );
+    const [rows] = await pool.query(
+      `SELECT
+         i.id,
+         i.raw_material_id AS rawMaterialId,
+         i.quantity,
+         i.created_at,
+         r.name, r.brand, r.units, r.price, r.status
+       FROM inventory i
+       JOIN raw_materials r ON i.raw_material_id = r.id
+       WHERE i.id = ?`,
+      [result.insertId]
+    );
+    return res.json(rows[0]);
+  } catch (e) {
+    console.error("POST /api/inventory error:", e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+
+
+/* ---------------- INVENTORY ---------------- */
 
 // Add inventory item
 app.post("/api/inventory", async (req, res) => {
   try {
     const { rawMaterialId, quantity } = req.body;
+
     const [result] = await pool.execute(
-      "INSERT INTO inventory (raw_material_id, quantity) VALUES (?, ?)",
+      `INSERT INTO inventory (raw_material_id, quantity)
+       VALUES (?, ?)`,
       [rawMaterialId, quantity]
     );
-    res.json({ id: result.insertId, rawMaterialId, quantity });
+
+    // Return the new row joined with raw_materials details
+    const [rows] = await pool.query(
+      `SELECT 
+         i.id,
+         i.raw_material_id AS rawMaterialId,
+         i.quantity,
+         i.created_at,
+         r.name,
+         r.brand,
+         r.units,
+         r.price,
+         r.status
+       FROM inventory i
+       JOIN raw_materials r ON i.raw_material_id = r.id
+       WHERE i.id = ?`,
+      [result.insertId]
+    );
+
+    res.json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
