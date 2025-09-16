@@ -270,3 +270,59 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Backend running → http://localhost:${PORT}`);
 });
+
+/* ---------------- RAW MATERIALS ---------------- */
+
+// Get all raw materials
+app.get("/api/raw-materials", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM raw_materials");
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Add raw material
+app.post("/api/raw-materials", async (req, res) => {
+  try {
+    const { name, brand, description, units, price, status } = req.body;
+    const [result] = await pool.execute(
+      "INSERT INTO raw_materials (name, brand, description, units, price, status) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, brand, description, units, price, status]
+    );
+    res.json({ id: result.insertId, ...req.body });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- INVENTORY ---------------- */
+
+// Get inventory with raw material details
+app.get("/api/inventory", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT i.id, i.quantity, r.id AS rawMaterialId, r.name, r.brand, r.units, r.price, r.status
+      FROM inventory i
+      JOIN raw_materials r ON i.raw_material_id = r.id
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Add inventory item
+app.post("/api/inventory", async (req, res) => {
+  try {
+    const { rawMaterialId, quantity } = req.body;
+    const [result] = await pool.execute(
+      "INSERT INTO inventory (raw_material_id, quantity) VALUES (?, ?)",
+      [rawMaterialId, quantity]
+    );
+    res.json({ id: result.insertId, rawMaterialId, quantity });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});

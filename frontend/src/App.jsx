@@ -11,6 +11,7 @@ import UserList from './components/Userlist.jsx';
 import ProductsPage from './components/Productspage.jsx';
 import ContactPage from './components/Contactpage.jsx';
 import FaqPage from './components/FaqPage.jsx';
+import Inventory from './components/Inventory.jsx';
 
 
 function App() {
@@ -29,6 +30,11 @@ function App() {
             <Dashboard />
             </AdminRoute>
             }/>
+        <Route path="/inventory" element={
+          <AdminRoute>
+            <Inventory />
+          </AdminRoute>
+        }/>
         <Route path="/userlist" element={
             <AdminRoute>
               <UserList />

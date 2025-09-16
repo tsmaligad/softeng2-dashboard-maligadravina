@@ -8,6 +8,7 @@ import logoutIcon from "../assets/softeng2_logout.png";
 import logo from "../assets/sweettreats_logo.png";
 import dashboardicon from "../assets/dashboard1.png";
 import home from "../assets/home.png";
+import inventorylogo from "../assets/inventory.png";
 
 // ✅ use api.js instead of authService
 import { api } from "../utils/api";
@@ -131,6 +132,23 @@ const Sidebar = () => {
       className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
     />
     <span className="text-[15px] ml-[5px]">Users</span>
+  </NavLink>
+</li>
+
+{/* INVENTORY */}
+<li className="flex justify-start">
+  <NavLink
+    to="/inventory"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={inventorylogo}
+      alt="Inventory"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]">Inventory</span>
   </NavLink>
 </li>
 
