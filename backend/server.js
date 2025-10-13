@@ -6,6 +6,15 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB
+  fileFilter: (_req, file, cb) => {
+    const ok = ['image/jpeg','image/png','image/webp','image/gif'].includes(file.mimetype);
+    cb(ok ? null : new Error('Unsupported image type'), ok);
+  }
+});
 
 const app = express();
 
@@ -265,6 +274,48 @@ app.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /register → create a standard user
+app.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "name, email, password are required" });
+    }
+
+    const normName = String(name).trim().replace(/\s+/g, " ");
+    const normEmail = String(email).trim().toLowerCase();
+
+    // prevent duplicates
+    const [exists] = await pool.query("SELECT id FROM users WHERE email = ? LIMIT 1", [normEmail]);
+    if (exists.length) {
+      return res.status(409).json({ message: "Email already exists" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const [result] = await pool.query(
+      `INSERT INTO users (name, email, password_hash, role, is_active)
+       VALUES (?, ?, ?, 'user', 1)`,
+      [normName, normEmail, hash]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      name: normName,
+      email: normEmail,
+      role: "user",
+      is_active: true,
+    });
+  } catch (e) {
+    console.error("POST /register error:", e);
+    if (e.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ message: "Email already exists" });
+    }
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 /* ---------------- Start server ---------------- */
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
@@ -436,3 +487,122 @@ app.post("/api/inventory", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+/* ------------ PRODUCTS: Public (read-only) ------------ */
+
+// List products (for the catalog)
+app.get('/api/products', async (req, res) => {
+  try {
+    const { q = '', category = '', page = 1, pageSize = 24 } = req.query;
+    const limit = Math.min(Math.max(parseInt(pageSize, 10) || 24, 1), 100);
+    const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * limit;
+
+    const filters = ['is_active = 1'];
+    const params = [];
+
+    if (q) { filters.push('(name LIKE ? OR description LIKE ?)'); params.push(`%${q}%`, `%${q}%`); }
+    if (category) { filters.push('category = ?'); params.push(category); }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const [rows] = await pool.query(
+      `SELECT id, name, description, price, category,
+              options,
+              (image IS NOT NULL) AS has_image,
+              image_mime, created_at, updated_at
+       FROM products
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    const items = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      category: r.category,
+      price: Number(r.price),
+      options: r.options ? JSON.parse(r.options) : null,
+      image_url: r.has_image ? `/api/products/${r.id}/image` : null,
+      created_at: r.created_at,
+      updated_at: r.updated_at
+    }));
+
+    res.json({ page: Number(page), pageSize: limit, items });
+  } catch (e) {
+    console.error('GET /api/products error:', e);
+    res.status(500).json({ error: 'Failed to list products' });
+  }
+});
+
+// Single product (for the product page)
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.query(
+      `SELECT id, name, description, price, category,
+              options,
+              (image IS NOT NULL) AS has_image, image_mime,
+              created_at, updated_at
+       FROM products
+       WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Not found' });
+    const p = rows[0];
+    res.json({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      category: p.category,
+      price: Number(p.price),
+      options: p.options ? JSON.parse(p.options) : null,
+      image_url: p.has_image ? `/api/products/${p.id}/image` : null,
+      created_at: p.created_at,
+      updated_at: p.updated_at
+    });
+  } catch (e) {
+    console.error('GET /api/products/:id error:', e);
+    res.status(500).json({ message: 'Failed to load product' });
+  }
+});
+
+// Main image (bytes) for <img src=...>
+app.get('/api/products/:id/image', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.query(
+      'SELECT image, image_mime FROM products WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!rows.length || !rows[0].image) return res.status(404).send('Image not found');
+    res.set('Content-Type', rows[0].image_mime || 'application/octet-stream');
+    res.send(rows[0].image);
+  } catch (e) {
+    console.error('GET /api/products/:id/image error:', e);
+    res.status(500).json({ error: 'Failed to load image' });
+  }
+});
+
+// POST /api/products/:id/image → upload a product photo
+app.post('/api/products/:id/image', upload.single('image'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    await pool.query(
+      `UPDATE products SET image = ?, image_mime = ? WHERE id = ?`,
+      [file.buffer, file.mimetype, id]
+    );
+
+    res.json({ success: true, message: 'Image uploaded successfully!' });
+  } catch (e) {
+    console.error('POST /api/products/:id/image error:', e);
+    res.status(500).json({ message: 'Failed to upload image' });
+  }
+});
+
+

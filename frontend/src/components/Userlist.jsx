@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../utils/api";
 import Sidebar from "./Sidebar.jsx";
+import search from "../assets/search.png";
 
 function formatDateLong(iso) {
   if (!iso) return "-";
@@ -10,6 +11,7 @@ function formatDateLong(iso) {
     day: "numeric",
   });
 }
+
 
 const UserList = () => {
   const [q, setQ] = useState("");
@@ -44,6 +46,12 @@ const UserList = () => {
   useEffect(() => {
     load();
   }, []);
+
+  function handleSearchSubmit(e) {
+    e.preventDefault();   // stop page refresh
+    load();               // runs your fetch using `q`
+  }
+  
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -108,13 +116,15 @@ const UserList = () => {
       <Sidebar />
 
       <main className="flex-1">
-        <div className="pt-[72px] mx-auto max-w-6xl px-8 py-10">
-          <h1 className="text-3xl font-bold tracking-tight text-[#332601] mb-8">
+        <div className="ml-[30px] mr-[30px] mx-auto max-w-6xl px-8 py-10">
+          <h1 className="text-3xl font-bold tracking-tight text-[#332601] mb-8 mt-[30px]">
             User Management
           </h1>
 
+          <hr className="border-t border-[#8b7760]" />
+
           {/* Search */}
-          <div className="mb-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+         {/* <div className="pt-[42px] mb-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -123,16 +133,18 @@ const UserList = () => {
             />
             <button
               onClick={load}
-              className="px-2 py-1 bg-[#4A3600] text-white rounded"
+              className="px-2 py-1 bg-[#4A3600] text-white rounded mb-[30px]"
             >
               Search
             </button>
-          </div>
+          </div> */}
+
+
 
           {/* Create / Edit Form */}
           <form
             onSubmit={onSubmit}
-            className="mb-10 grid grid-cols-1 md:grid-cols-6 gap-4 bg-white p-6 rounded-2xl shadow-md border border-gray-200"
+            className="mb-10 grid grid-cols-1 md:grid-cols-6 gap-4 bg-white p-6 rounded-2xl shadow-md border border-gray-200 mt-[40px]"
           >
             <input
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none md:col-span-2"
@@ -188,10 +200,38 @@ const UserList = () => {
             </button>
           </form>
 
+          {/* Search */}
+<form
+  onSubmit={handleSearchSubmit}
+  className="pt-[42px] flex items-center justify-center"
+>
+  <div className="flex w-full sm:max-w-4xl rounded overflow-hidden shadow-sm border border-gray-300">
+    <input
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+      placeholder="Search name or email"
+      className="flex-1 px-4 py-2 text-sm focus:outline-none"
+    />
+    <button
+      type="submit"   // ✅ submit triggers Enter key too
+      className="bg-[#FFC6C6] px-4 flex items-center justify-center"
+      aria-label="Search"
+      title="Search"
+    >
+      <img src={search} alt="" className="w-[20px] h-[20px]" />
+    </button>
+  </div>
+</form>
+
+
+
+          
+
+
           {/* Users Table */}
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wide">
+              <thead className=" text-gray-700 text-gray-700 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="px-6 py-3">Name</th>
                   <th className="px-6 py-3">Role</th>

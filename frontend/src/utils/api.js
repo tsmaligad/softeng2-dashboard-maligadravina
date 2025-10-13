@@ -52,14 +52,22 @@ export const api = {
   },
 
   // ✅ REGISTER (needed by Createacc)
-  register: async ({ firstName, lastName, email, password }) => {
-    const { res, text } = await debugFetch(`${BASE_URL}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, email, password }),
-    });
-    return handleJson(res, text);
-  },
+  // ✅ REGISTER (Createacc.jsx calls this)
+  // inside export const api = { … }
+register: async ({ firstName, lastName, email, password }) => {
+  const name = `${(firstName || '').trim()} ${(lastName || '').trim()}`
+    .trim()
+    .replace(/\s+/g, ' ');
+  const { res, text } = await debugFetch(`${BASE_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  return handleJson(res, text);
+},
+
+  
+
 
   // ✅ ADMIN LOGIN (normalize success if token present)
   adminLogin: async ({ email, password }) => {

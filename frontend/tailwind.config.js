@@ -12,7 +12,10 @@ export default {
 
   theme: {
     extend: {
-      fontFamily: { kapakana: ["Kapakana", "serif"] },
+      fontFamily: {
+        karla: ["Karla", "sans-serif"],      // global default
+        kapakana: ["Kapakana", "serif"],     // only when you use font-kapakana
+      },
     },
   },
   plugins: [],

@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
 
     try {
       console.log("[LoginPage] calling api.adminLogin…");
-      const data = await api.adminLogin({ email, password });
+      const data = await api.login({ email, password });
 
       console.log("[LoginPage] api.adminLogin returned:", data);
       const saved = localStorage.getItem("token");

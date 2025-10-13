@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Karla:wght@400;700&display=swap');
 
+
+
+
 @font-face {
   font-family: "Kapakana";
   src: url("./assets/fonts/Kapakana-Regular.ttf") format("truetype");
@@ -7,9 +10,11 @@
   font-style: normal;
   font-display: swap;
 }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 html, body {
   margin: 0;
@@ -18,4 +23,4 @@ html, body {
 
 body {
   font-family: 'Karla', 'Kapakana';
-}
+}  
