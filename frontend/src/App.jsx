@@ -17,6 +17,7 @@ import Inventory from './components/Inventory.jsx';
 import RawMaterials from './components/RawMaterials.jsx';
 import ScrollToTop from "./components/ScrollToTop";
 import MyAccount from './components/Myaccount.jsx';
+import ProductsManagement from './components/ProductsManagement.jsx';
 
 function App() {
   return (
@@ -43,6 +44,12 @@ function App() {
         <Route path="/inventory" element={
           <AdminRoute>
             <Inventory />
+          </AdminRoute>
+        }/>
+
+<Route path="/productmanagement" element={
+          <AdminRoute>
+            <ProductsManagement />
           </AdminRoute>
         }/>
 

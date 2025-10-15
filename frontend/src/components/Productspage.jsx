@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import Stickybar from "./Stickybar";
 import Footer from "./Footer";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; // ✅ add this
 
 const Productspage = () => {
   const [products, setProducts] = useState([]);
+  const navigate = useNavigate(); // ✅ initialize navigate
 
   useEffect(() => {
-    // fetch products from your Express backend
     fetch("http://localhost:8080/api/products")
       .then((res) => res.json())
       .then((data) => setProducts(data.items || []))
@@ -30,27 +30,32 @@ const Productspage = () => {
           <div className="grid grid-cols-4 gap-8 mt-[40px] mb-[60px]">
             {products.map((p) => (
               <article key={p.id}>
-              <Link to={`/products-page/${p.id}`}>
-                <figure className="cursor-pointer hover:scale-[1.02] transition-transform duration-200">
+                <figure
+                  onClick={() => navigate(`/products-page/${p.id}`)} // ✅ navigate to detail
+                  className="cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+                >
+                  <div className="mt-[30px] w-full h-48 md:h-56 overflow-hidden border-[3px] border-[#5B4220] rounded">
                   <img
-                    src={
-                      p.image_url
-                        ? `http://localhost:8080${p.image_url}`
-                        : "/placeholder.png"
-                    }
-                    alt={p.name}
-                    className="mt-[30px] w-full h-auto object-cover border-[3px] border-[#5B4220]"
-                  />
-                  <figcaption className="p-2 text-left">
-                    <h3 className="text-sm text-[#332601]">{p.name}</h3>
-                    <p className="text-sm font-semibold text-[#332601]">
-                      ₱{Number(p.price).toFixed(2)}
+  src={
+    p.image_url
+      ? `http://localhost:8080${p.image_url}`
+      : "/placeholder.png"
+  }
+  alt={p.name}
+  className="w-full h-full object-contain bg-[#FFF8F8]"
+/>
+
+                  </div>
+                  <figcaption className="p-2 text-left leading-tight">
+                    <h3 className="text-[13px] text-[#463300] font-light mb-[2px]">
+                      {p.name}
+                    </h3>
+                    <p className="text-[15px] font-semibold text-[#4A3600]">
+                      From ₱{Number(p.base_price).toFixed(2)} PHP
                     </p>
                   </figcaption>
                 </figure>
-              </Link>
-            </article>
-            
+              </article>
             ))}
           </div>
 

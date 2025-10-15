@@ -1,116 +1,385 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
 import Stickybar from "./Stickybar";
 import Footer from "./Footer";
 
-export default function ProductDetail() {
-  const { id } = useParams(); // /products-page/:id route
-  const [product, setProduct] = useState(null);
-  const [related, setRelated] = useState([]); // to show featured/related items
+const API = "http://localhost:8080";
 
+export default function ProductDetail() {
+  const { id } = useParams();
+
+  // ---- States ----
+  const [product, setProduct] = useState(null);
+  const [related, setRelated] = useState([]);
+  const [flavors, setFlavors] = useState([]);
+  const [addons, setAddons] = useState([]);
+  const [sizes, setSizes] = useState([]);
+
+  // form selections
+  const [size, setSize] = useState("");
+  const [flavorTop, setFlavorTop] = useState("");
+  const [flavorBottom, setFlavorBottom] = useState("");
+  const [qty, setQty] = useState(1);
+  const [cakeNotes, setCakeNotes] = useState("");
+  const [cupcakeNotes, setCupcakeNotes] = useState("");
+  const [dedication, setDedication] = useState("");
+  const [addonsSel, setAddonsSel] = useState([]);
+
+  // ---- Fetch product ----
   useEffect(() => {
-    // fetch current product
-    fetch(`http://localhost:8080/api/products/${id}`)
+    fetch(`${API}/api/products/${encodeURIComponent(id)}`)
       .then((r) => r.json())
-      .then(setProduct)
+      .then((data) => {
+        setProduct(data);
+
+        // set size/flavor/addon options
+        const s = data.options?.sizes || data.sizes || [];
+        const f = data.options?.flavors || data.flavors || [];
+        const a = data.options?.addons || data.addons || [];
+        setSizes(Array.isArray(s) ? s : []);
+        setFlavors(Array.isArray(f) ? f : []);
+        setAddons(Array.isArray(a) ? a : []);
+      })
       .catch(console.error);
   }, [id]);
 
+  // ---- Fetch related products ----
   useEffect(() => {
-    // fetch a few featured products
-    fetch(`http://localhost:8080/api/products?pageSize=4`)
+    fetch(`${API}/api/products?pageSize=24`)
       .then((r) => r.json())
       .then((data) => setRelated(data.items || []))
       .catch(console.error);
   }, []);
 
+  // ---- Preselect first values ----
+  useEffect(() => {
+    if (sizes.length && !size) setSize(sizes[0]);
+    if (flavors.length && !flavorTop) {
+      setFlavorTop(flavors[0].name || flavors[0].title || flavors[0]);
+    }
+    if (flavors.length && !flavorBottom) {
+      const second = flavors[1] || flavors[0];
+      setFlavorBottom(second.name || second.title || second);
+    }
+  }, [sizes, flavors, size, flavorTop, flavorBottom]);
+
+  // ---- Helpers ----
+  const toggleAddon = (id) => {
+    setAddonsSel((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const Chip = ({ active, children, onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "px-3 py-[6px] rounded border text-sm transition",
+        active
+          ? "bg-[#FFC6C6] text-white border-[#332601]"
+          : "bg-white text-[#332601] border-[#332601] hover:bg-[#F5EFEF]",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+
+  const featured = useMemo(() => {
+    const pool = related.filter((p) => String(p.id) !== String(id));
+    return [...pool].sort(() => 0.5 - Math.random()).slice(0, 4);
+  }, [related, id]);
+
   if (!product) return <p>Loading...</p>;
 
+  const price = Number(product.price ?? product.base_price ?? 0);
+  const imageSrc = product.image_url
+    ? `${API}${product.image_url}`
+    : "/placeholder.png";
+
+  // ---- UI ----
   return (
     <>
       <Stickybar />
       <div className="pt-[72px]">
-            <section className="bg-[#4A3600] h-[90px] mb-[70px]" />
-          </div>
-          <main className="flex items-start justify-center">
-          <div className="w-full max-w-[1200px] mx-auto px-4">
-            
-          <div>
-            <img
-              src={`http://localhost:8080${product.image_url}`}
-              alt={product.name}
-              className="rounded-2xl w-full border-[3px] border-[#5B4220]"
-            />
-          </div>
+        <section className="bg-[#4A3600] h-[90px] mb-[70px]" />
+      </div>
 
-          <div>
-            <h1 className="text-3xl font-bold text-[#332601]">{product.name}</h1>
-            <p className="text-lg mt-2 font-semibold text-[#4A3600]">
-              From ₱{product.price.toFixed(2)}
+      {/* MAIN SECTION */}
+      <main className="flex items-start justify-center bg-[#F5EFEF]">
+      <div className="w-full max-w-[1200px] mx-auto px-4 grid gap-10 lg:grid-cols-[520px_1fr]">
+
+          {/* Left - Images */}
+          <section>
+            <div className="rounded-2xl overflow-hidden border-[3px] border-[#5B4220]">
+              <img
+                src={imageSrc}
+                alt={product.name}
+                className="w-full h-[420px] object-cover"
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-28 overflow-hidden border-[3px] border-[#5B4220] rounded"
+                >
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Right - Info */}
+          <section>
+            <h1 className="text-[26px] font-semibold text-[#332601]">
+              {product.name}
+            </h1>
+            <p className="mt-2 text-[#4A3600] font-semibold">
+              From ₱{price.toFixed(2)} PHP
             </p>
-            <p className="mt-4 text-[#332601]">{product.description}</p>
 
+            {/* Sizes */}
+            {sizes.length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs text-[#332601] mb-1">Size:</p>
+                <div className="flex flex-wrap gap-2">
+                  {sizes.map((s) => (
+                    <Chip
+                      key={s}
+                      active={size === s}
+                      onClick={() => setSize(s)}
+                    >
+                      {s}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Flavors */}
+            {flavors.length > 0 && (
+              <>
+                <div className="mt-5">
+                  <p className="text-xs text-[#332601] mb-1">
+                    Flavor for top layer:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {flavors.map((f, i) => {
+                      const name = f.name || f.title || f;
+                      return (
+                        <Chip
+                          key={`top-${i}`}
+                          active={flavorTop === name}
+                          onClick={() => setFlavorTop(name)}
+                        >
+                          {name}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs text-[#332601] mb-1">
+                    Flavor for bottom layer:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {flavors.map((f, i) => {
+                      const name = f.name || f.title || f;
+                      return (
+                        <Chip
+                          key={`bot-${i}`}
+                          active={flavorBottom === name}
+                          onClick={() => setFlavorBottom(name)}
+                        >
+                          {name}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Quantity */}
             <div className="mt-5">
-              <h3 className="font-semibold text-[#332601]">
-                Flavor for top layer:
-              </h3>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {["Chocolate", "Mocha", "Pandan", "Ube", "Red Velvet"].map((f) => (
-                  <button
-                    key={f}
-                    className="border border-[#5B4220] rounded px-3 py-1 hover:bg-pink-100"
-                  >
-                    {f}
-                  </button>
-                ))}
+              <p className="text-xs text-[#332601] mb-1">Quantity:</p>
+              <div className="inline-flex items-center border border-[#5B4220] rounded">
+                <button
+                  type="button"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  className="px-3 py-2"
+                >
+                  –
+                </button>
+                <span className="px-4 select-none">{qty}</span>
+                <button
+                  type="button"
+                  onClick={() => setQty((q) => q + 1)}
+                  className="px-3 py-2"
+                >
+                  +
+                </button>
               </div>
             </div>
 
+            {/* Cake and Cupcake Notes */}
             <div className="mt-5">
-              <label className="block mb-1 font-semibold text-[#332601]">
-                Dedication Message:
-              </label>
+              <p className="text-xs text-[#332601] mb-2">
+                Design Sample or Request for <b>Cake</b>:
+              </p>
               <textarea
-                className="w-full border border-[#5B4220] rounded-lg p-2"
-                placeholder="N/A if no dedication"
-              ></textarea>
+                value={cakeNotes}
+                onChange={(e) => setCakeNotes(e.target.value)}
+                className="w-full h-28 border border-[#5B4220] rounded-lg p-2"
+                placeholder="Paste link or describe your design request"
+              />
             </div>
 
-            <button className="mt-6 bg-pink-500 text-white px-6 py-2 rounded-xl hover:bg-pink-600">
+            <div className="mt-4">
+              <p className="text-xs text-[#332601] mb-2">
+                Design Sample or Request for <b>Cupcakes</b>:
+              </p>
+              <textarea
+                value={cupcakeNotes}
+                onChange={(e) => setCupcakeNotes(e.target.value)}
+                className="w-full h-28 border border-[#5B4220] rounded-lg p-2"
+                placeholder="Paste link or describe your design request"
+              />
+            </div>
+
+            {/* Add-ons */}
+            {addons.length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs text-[#332601] mb-2">Add-ons:</p>
+                <div className="flex flex-wrap gap-3">
+                  {addons.map((a, i) => {
+                    const id = a.id || `a-${i}`;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleAddon(id)}
+                        className={[
+                          "rounded px-3 py-2 border text-sm text-left",
+                          addonsSel.includes(id)
+                            ? "bg-[#FFC6C6] text-white border-[#332601]"
+                            : "bg-white text-[#332601] border-[#332601] hover:bg-[#F5EFEF]",
+                        ].join(" ")}
+                        title={a.description || ""}
+                      >
+                        <div className="font-medium">
+                          {a.title || a.name || a}
+                        </div>
+                        {a.description && (
+                          <div className="text-[11px] opacity-80">
+                            {a.description}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Dedication */}
+            <div className="mt-5">
+              <p className="text-xs text-[#332601] mb-1">Dedication Message:</p>
+              <textarea
+                value={dedication}
+                onChange={(e) => setDedication(e.target.value)}
+                className="w-full border border-[#5B4220] rounded-lg p-2"
+                placeholder="N/A if no dedication"
+              />
+            </div>
+
+            {/* Add to Cart */}
+            <button
+              className="mt-6 bg-pink-500 text-white px-6 py-2 rounded-xl hover:bg-pink-600"
+              onClick={() => {
+                console.log({
+                  productId: product.id,
+                  size,
+                  flavorTop,
+                  flavorBottom,
+                  qty,
+                  cakeNotes,
+                  cupcakeNotes,
+                  dedication,
+                  addons: addonsSel,
+                });
+                alert("Added to cart (demo)");
+              }}
+            >
               Add to Cart
             </button>
-          </div>
+          </section>
         </div>
       </main>
 
-      {/* 🟤 Featured Products Section */}
+      {/* FEATURED PRODUCTS */}
       <section className="bg-[#4A3600] w-full mt-[80px]">
         <div className="h-[95px] flex items-center justify-center">
-          <h2
-            className="m-0 text-lg font-semibold text-white !text-white"
-            style={{ color: "white" }}
-          >
+          <h2 className="m-0 text-lg font-semibold text-white">
             Featured products
           </h2>
         </div>
-        </section>
+      </section>
 
-        {/* 🧁 Grid of featured products */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-[40px] mb-[80px] px-6 max-w-[1000px]">
-          {related.map((p) => (
-            <div key={p.id} className="text-center">
-              <img
-                src={`http://localhost:8080${p.image_url}`}
-                alt={p.name}
-                className="w-full h-auto object-cover border-[2px] border-[#5B4220]"
-              />
-              <p className="mt-2 text-sm text-[#332601]">{p.name}</p>
-              <p className="text-sm font-semibold text-[#332601]">
-                From ₱{Number(p.price).toFixed(2)}
-              </p>
-            </div>
-          ))}
+      <div className="flex items-start justify-center bg-[#F5EFEF]">
+        <div className="w-full max-w-[1200px] mx-auto px-4">
+          <div className="flex flex-wrap justify-between gap-6 mt-[40px] mb-[60px]">
+            {featured.map((p) => (
+              <article
+                key={p.id}
+                className="flex-1 min-w-[250px] max-w-[270px]"
+              >
+                <Link
+                  to={`/products-page/${p.id}`}
+                  className="no-underline hover:no-underline"
+                >
+                  <div className="w-full h-56 overflow-hidden border-[3px] border-[#5B4220] rounded">
+                    <img
+                      src={
+                        p.image_url
+                          ? `${API}${p.image_url}`
+                          : "/placeholder.png"
+                      }
+                      alt={p.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <figcaption className="p-2 text-left leading-tight">
+                    <h3 className="text-[13px] text-[#463300] font-light mb-[2px]">
+                      {p.name}
+                    </h3>
+                    <p className="text-[15px] font-semibold text-[#4A3600]">
+                      From ₱
+                      {Number(p.price ?? p.base_price ?? 0).toFixed(2)} PHP
+                    </p>
+                  </figcaption>
+                </Link>
+              </article>
+            ))}
+          </div>
+
+          <div className="flex justify-center mb-[120px]">
+            <Link
+              to="/products-page"
+              className="text-[#463300] font-semibold hover:underline text-sm"
+            >
+              View all
+            </Link>
+          </div>
         </div>
+      </div>
 
       <Footer />
     </>
