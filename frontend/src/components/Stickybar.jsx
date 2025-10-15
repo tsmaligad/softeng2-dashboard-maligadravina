@@ -187,9 +187,14 @@ const Stickybar = () => {
             )}
           </div>
 
-          <button aria-label="Shopping Cart" className="bg-transparent p-0 border-0 focus:outline-none">
-            <img src={CartIcon} alt="Shopping Cart" className="h-[22px] w-[22px] mr-[30px]" />
-          </button>
+          <Link to="/cart" aria-label="Shopping Cart">
+  <img
+    src={CartIcon}
+    alt="Shopping Cart"
+    className="h-[22px] w-[22px] mr-[30px]"
+  />
+</Link>
+
         </div>
       </div>
     </header>

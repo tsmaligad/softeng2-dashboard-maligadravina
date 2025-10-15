@@ -17,6 +17,8 @@ import Inventory from './components/Inventory.jsx';
 import RawMaterials from './components/RawMaterials.jsx';
 import ScrollToTop from "./components/ScrollToTop";
 import MyAccount from './components/Myaccount.jsx';
+import Cart from './components/Cart.jsx';
+import Checkout from './components/Checkout.jsx';
 import ProductsManagement from './components/ProductsManagement.jsx';
 
 function App() {
@@ -32,8 +34,9 @@ function App() {
         <Route path="/contact-page" element={<ContactPage />} />
         <Route path="/faq-page" element={<FaqPage />} />
         <Route path="/about-us" element={<AboutUs />} />
+        <Route path="/cart" element={<Cart />} />
         <Route path="/my-account" element={<MyAccount />} />
-
+        <Route path="/checkout" element={<Checkout />} />
         {/* Admin Routes */}
        
         <Route path="/admin-dashboard" element={

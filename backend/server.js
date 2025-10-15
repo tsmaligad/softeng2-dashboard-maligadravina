@@ -952,3 +952,142 @@ app.delete("/api/addons/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete addon" });
   }
 });
+
+
+
+
+
+
+/* ---------------- CART (auth users) ---------------- */
+
+// helper: get or create user cart
+async function getOrCreateCartId(userId) {
+  const [rows] = await pool.query('SELECT id FROM carts WHERE user_id=? LIMIT 1', [userId]);
+  if (rows.length) return rows[0].id;
+  const [ins] = await pool.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
+  return ins.insertId;
+}
+
+// GET /api/cart → current user's cart with product info
+app.get('/api/cart', requireAuth, async (req, res) => {
+  try {
+    const cartId = await getOrCreateCartId(req.user.userId);
+    const [rows] = await pool.query(`
+      SELECT ci.id, ci.product_id, ci.qty, ci.unit_price, ci.notes,
+             p.name, (p.image IS NOT NULL) AS has_image
+      FROM cart_items ci
+      JOIN products p ON p.id = ci.product_id
+      WHERE ci.cart_id = ?
+      ORDER BY ci.id DESC
+    `, [cartId]);
+
+    const items = rows.map(r => ({
+      id: r.id,
+      product_id: r.product_id,
+      name: r.name,
+      qty: r.qty,
+      unit_price: Number(r.unit_price),
+      notes: r.notes || "",
+      image_url: r.has_image ? `/api/products/${r.product_id}/image` : null,
+      subtotal: Number(r.unit_price) * r.qty
+    }));
+
+    const total = items.reduce((t, it) => t + it.subtotal, 0);
+    res.json({ items, total });
+  } catch (e) {
+    console.error('GET /api/cart error', e);
+    res.status(500).json({ error: 'Failed to load cart' });
+  }
+});
+
+// POST /api/cart/items → add item
+app.post('/api/cart/items', requireAuth, async (req, res) => {
+  try {
+    const { product_id, qty = 1, unit_price = 0, notes = "" } = req.body || {};
+    if (!product_id) return res.status(400).json({ error: 'product_id required' });
+    const cartId = await getOrCreateCartId(req.user.userId);
+
+    // If same product+notes exists, just bump qty (simple consolidation)
+    const [exist] = await pool.query(
+      'SELECT id, qty FROM cart_items WHERE cart_id=? AND product_id=? AND (notes <=> ?)',
+      [cartId, product_id, notes || null]
+    );
+    if (exist.length) {
+      const row = exist[0];
+      await pool.query('UPDATE cart_items SET qty = qty + ? WHERE id=?', [Number(qty) || 1, row.id]);
+    } else {
+      await pool.query(
+        'INSERT INTO cart_items (cart_id, product_id, qty, unit_price, notes) VALUES (?, ?, ?, ?, ?)',
+        [cartId, product_id, Number(qty) || 1, Number(unit_price) || 0, notes || null]
+      );
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('POST /api/cart/items error', e);
+    res.status(500).json({ error: 'Failed to add to cart' });
+  }
+});
+
+// PATCH /api/cart/items/:id → update qty or notes
+app.patch('/api/cart/items/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { qty, notes } = req.body || {};
+    const cartId = await getOrCreateCartId(req.user.userId);
+
+    const fields = [];
+    const vals = [];
+    if (qty != null) { fields.push('qty=?'); vals.push(Math.max(1, Number(qty))); }
+    if (notes != null) { fields.push('notes=?'); vals.push(notes || null); }
+    if (!fields.length) return res.status(400).json({ error: 'No changes' });
+
+    vals.push(cartId, id);
+    await pool.query(`UPDATE cart_items SET ${fields.join(', ')} WHERE cart_id=? AND id=?`, vals);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PATCH /api/cart/items/:id error', e);
+    res.status(500).json({ error: 'Failed to update cart' });
+  }
+});
+
+// DELETE /api/cart/items/:id
+app.delete('/api/cart/items/:id', requireAuth, async (req, res) => {
+  try {
+    const cartId = await getOrCreateCartId(req.user.userId);
+    await pool.query('DELETE FROM cart_items WHERE cart_id=? AND id=?', [cartId, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /api/cart/items/:id error', e);
+    res.status(500).json({ error: 'Failed to remove item' });
+  }
+});
+
+// POST /api/cart/sync → merge local guest items into user cart (on login or visit)
+app.post('/api/cart/sync', requireAuth, async (req, res) => {
+  try {
+    const { items = [] } = req.body || {};
+    const cartId = await getOrCreateCartId(req.user.userId);
+
+    for (const it of items) {
+      const { product_id, qty = 1, unit_price = 0, notes = "" } = it || {};
+      if (!product_id) continue;
+      const [exist] = await pool.query(
+        'SELECT id FROM cart_items WHERE cart_id=? AND product_id=? AND (notes <=> ?)',
+        [cartId, product_id, notes || null]
+      );
+      if (exist.length) {
+        await pool.query('UPDATE cart_items SET qty = qty + ? WHERE id=?', [Number(qty)||1, exist[0].id]);
+      } else {
+        await pool.query(
+          'INSERT INTO cart_items (cart_id, product_id, qty, unit_price, notes) VALUES (?, ?, ?, ?, ?)',
+          [cartId, product_id, Number(qty)||1, Number(unit_price)||0, notes || null]
+        );
+      }
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('POST /api/cart/sync error', e);
+    res.status(500).json({ error: 'Failed to sync cart' });
+  }
+});
