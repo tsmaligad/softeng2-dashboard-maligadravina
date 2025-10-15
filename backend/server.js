@@ -1091,3 +1091,96 @@ app.post('/api/cart/sync', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to sync cart' });
   }
 });
+
+
+
+
+
+//para sa job order //
+// Add these endpoints after your existing routes
+
+// GET /api/orders - Get all orders
+app.get('/api/orders', async (_req, res) => {
+  try {
+    const [orders] = await pool.query(`
+      SELECT o.*, 
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', i.id,
+            'name', i.name,
+            'qty', i.qty,
+            'unit_price', i.unit_price
+          )
+        ) as items_json
+      FROM orders o
+      LEFT JOIN order_items i ON o.id = i.order_id
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `);
+
+    const result = orders.map(order => ({
+      ...order,
+      items: order.items_json ? JSON.parse(`[${order.items_json}]`) : []
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error('GET /api/orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// POST /api/orders - Create new order
+app.post('/api/orders', async (req, res) => {
+  try {
+    const {
+      customer_name,
+      email,
+      phone,
+      method,
+      address,
+      items,
+      total,
+      downpayment,
+      payment_method
+    } = req.body;
+
+    // Start transaction
+    const conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    try {
+      // Insert order
+      const [orderResult] = await conn.query(
+        `INSERT INTO orders (
+          customer_name, email, phone, method, address,
+          total, downpayment, payment_method
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [customer_name, email, phone, method, address, total, downpayment, payment_method]
+      );
+
+      // Insert order items
+      for (const item of items) {
+        await conn.query(
+          `INSERT INTO order_items (order_id, product_id, name, qty, unit_price)
+           VALUES (?, ?, ?, ?, ?)`,
+          [orderResult.insertId, item.id, item.name, item.qty, item.unit_price]
+        );
+      }
+
+      await conn.commit();
+      res.status(201).json({ 
+        success: true, 
+        orderId: orderResult.insertId 
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('POST /api/orders error:', err);
+    res.status(500).json({ error: 'Failed to create order' });
+  }
+});

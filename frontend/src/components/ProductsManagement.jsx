@@ -260,19 +260,20 @@ export default function ProductsManagement() {
   
 
   return (
-    <div className="flex min-h-screen bg-[#F5EFEF]">
+    <div className="flex min-h-screen bg-gradient-to-b from-[#FAF9F7] to-[#F3F1ED] ">
       <Sidebar />
-      <main className="flex-1 p-6 ml-[30px] mr-[30px] mt-[30px]">
+      <main className="flex-1 p-6 ml-[30px] mr-[30px] mt-[30px] ">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Products Management</h1>
 
         {/* --- Top center tabs --- */}
-        <div className="w-full flex justify-center mb-6 ">
-          <div className="flex gap-12 p-2">
-            <TabButton id="products" label="Product Management" className="ml-12"/>
-            <TabButton id="flavors" label="Flavors" className="ml-12"/>
-            <TabButton id="addons" label="Add-ons" className="ml-12"/>
+        <div className="w-full flex justify-center mb-[30px]">
+          <div className="flex p-2">
+            <TabButton id="products" label="Product Management" className="mr-[10px]" />
+            <TabButton id="flavors" label="Flavors" className="mr-[10px]" />
+            <TabButton id="addons" label="Add-ons" />
           </div>
         </div>
+
 
         {/* --- PRODUCTS TAB --- */}
         {tab === "products" && (
@@ -288,7 +289,7 @@ export default function ProductsManagement() {
                 placeholder="Product Name"
                 value={form.name}
                 onChange={handleInput}
-                className="border px-3 py-2 w-[200px]"
+                className="border px-3 py-2 w-[200px] mr-[8px] "
               />
               <input
                 type="text"
@@ -296,7 +297,7 @@ export default function ProductsManagement() {
                 placeholder="Base Price (₱)"
                 value={form.base_price}
                 onChange={handleInput}
-                className="border px-3 py-2 w-[200px]"
+                className="border px-3 py-2 w-[200px] mr-[8px]"
               />
 
               <div className="flex flex-col items-start">
@@ -304,13 +305,13 @@ export default function ProductsManagement() {
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  className="border px-2 py-1 text-sm w-[200px]"
+                  className="border px-2 py-1 text-sm w-[200px] mr-[8px]"
                 />
                 {form.image && (
                   <img
                     src={form.image}
                     alt="Preview"
-                    className="w-14 h-14 object-cover rounded-md mt-2 border"
+                    className="w-14 h-14 object-cover rounded-md mt-2 border mr-[8px]"
                   />
                 )}
               </div>
@@ -318,7 +319,7 @@ export default function ProductsManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-[#F5EFEF] border border-[#332601] text-[#332601] px-4 py-2 font-semibold"
+                className="bg-[#F5EFEF] border border-[#332601] text-[#332601] px-4 py-2 font-semibold mr-[5px]"
               >
                 {form.id ? "Update Product" : "Add Product"}
               </button>
@@ -326,46 +327,86 @@ export default function ProductsManagement() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="bg-gray-200 px-4 py-2 rounded"
+                className="bg-gray-200 px-4 py-2 rounded mr-[5px]"
               >
                 Reset
               </button>
             </form>
 
-            {/* PRODUCTS GRID */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-8">
+            {/* PRODUCTS GRID — now 4 per row, no white bg or borders */}
+<style>{`
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 2rem;
+    max-width: 1300px;
+    margin: 2rem auto 0;
+  }
+  @media (min-width: 640px) {
+    .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .admin-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* ← 4 across */
+  }
+
+  .admin-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    text-align: left;
+  }
+
+  .admin-thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1; /* perfect square, adjusts automatically */
+    overflow: hidden;
+    border-radius: 4px;
+  }
+
+  .admin-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+`}</style>
+
+<div className="admin-grid">
   {products.length > 0 ? (
     products.map((p) => (
-      <div
-        key={p.id}
-        className="bg-white shadow-md rounded-md overflow-hidden hover:shadow-lg transition"
-      >
-        <img
-          src={p.image ? `${API_BASE}${p.image}` : "/placeholder.png"}
-          alt={p.name}
-          className="w-full h-40 md:h-44 object-cover"
-        />
-        <div className="p-3 text-center">
-          <h2 className="font-semibold text-lg text-gray-800">{p.name}</h2>
-          <p className="text-gray-600 text-sm mt-1">₱{p.base_price}.00</p>
+      <div key={p.id} className="admin-card">
+        <div className="admin-thumb">
+          <img
+            src={p.image ? `${API_BASE}${p.image}` : "/placeholder.png"}
+            alt={p.name}
+          />
+        </div>
 
-          {/* ACTION BAR */}
-          <div className="mt-3 flex items-center justify-center gap-2">
+        <div className="mt-2">
+          <h2 className="text-[14px] font-semibold text-[#332601] mb-1 line-clamp-2">
+            {p.name}
+          </h2>
+          <p className="text-[13px] text-[#4A3600] mb-3 font-medium">
+            From ₱{p.base_price}.00 PHP
+          </p>
+
+          <div className="flex gap-2">
             <button
               onClick={() => viewProduct(p)}
-              className="px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="px-3 py-1 rounded border border-gray-300 text-[12px] text-gray-700 hover:bg-gray-50"
             >
               View
             </button>
             <button
               onClick={() => editProduct(p)}
-              className="px-3 py-1 rounded border border-[#332601] text-[#332601] hover:bg-[#F5EFEF]"
+              className="px-3 py-1 rounded border border-[#332601] text-[12px] text-[#332601] hover:bg-[#F5EFEF]"
             >
               Edit
             </button>
             <button
               onClick={() => handleDelete(p.id)}
-              className="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+              className="px-3 py-1 rounded bg-red-500 text-[12px] text-white hover:bg-red-600"
             >
               Delete
             </button>
@@ -374,11 +415,15 @@ export default function ProductsManagement() {
       </div>
     ))
   ) : (
-    <p className="text-center text-gray-500 italic col-span-full">
-      No products found.
-    </p>
+    <p className="text-center text-gray-500 italic col-span-full">No products found.</p>
   )}
-            </div>
+</div>
+
+
+
+
+
+
           </>
         )}
 

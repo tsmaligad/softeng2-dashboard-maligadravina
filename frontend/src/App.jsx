@@ -20,7 +20,7 @@ import MyAccount from './components/Myaccount.jsx';
 import Cart from './components/Cart.jsx';
 import Checkout from './components/Checkout.jsx';
 import ProductsManagement from './components/ProductsManagement.jsx';
-
+import JobOrder from './components/JobOrder.jsx'; 
 function App() {
   return (
     <Router>
@@ -66,6 +66,15 @@ function App() {
               <UserList />
             </AdminRoute>
           }/>
+
+<Route
+          path="/joborder"
+          element={
+            <AdminRoute>
+              <JobOrder />
+            </AdminRoute>
+          }
+        />
       </Routes>
       </ScrollToTop>
     </Router>

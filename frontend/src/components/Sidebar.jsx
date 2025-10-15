@@ -9,6 +9,8 @@ import logo from "../assets/sweettreats_logo.png";
 import dashboardicon from "../assets/dashboard1.png";
 import home from "../assets/home.png";
 import inventorylogo from "../assets/inventory.png";
+import cake from "../assets/birthday-cake.png";
+import order from "../assets/order.png";
 
 // ✅ use api.js instead of authService
 import { api } from "../utils/api";
@@ -178,11 +180,28 @@ const Sidebar = () => {
     }
   >
     <img
-      src={inventorylogo}
+      src={cake}
       alt="Product Management"
       className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
     />
     <span className="text-[15px] ml-[5px]">Products</span>
+  </NavLink>
+</li>
+
+{/* JOB ORDER */}
+<li className="flex justify-start">
+  <NavLink
+    to="/joborder"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={order}
+      alt="Job order"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]">Job Order</span>
   </NavLink>
 </li>
 
