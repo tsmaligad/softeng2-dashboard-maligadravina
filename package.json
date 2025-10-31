@@ -3,7 +3,9 @@
     "@fontsource/kapakana": "^5.2.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "mysql": "^2.18.1"
+    "mysql": "^2.18.1",
+    "react-google-recaptcha": "^3.1.0",
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "vite": "^7.1.1"

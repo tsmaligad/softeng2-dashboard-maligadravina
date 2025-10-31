@@ -20,7 +20,7 @@ const Productspage = () => {
       <div className="pt-[72px]">
         <section className="bg-[#4A3600] h-[90px]" />
       </div>
-      <main className="flex items-start justify-center bg-[#F5EFEF]">
+      <main className="flex items-start justify-center bg-[#F4E9E9]">
         <div className="w-full max-w-[1200px] mx-auto px-4">
           <h1 className="text-5xl font-kapakana italic text-left text-[#332601] mb-4 mt-[100px]">
             Products

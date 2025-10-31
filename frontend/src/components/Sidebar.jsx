@@ -102,6 +102,25 @@ const Sidebar = () => {
       {/* Nav */}
       <nav className="w-full mt-[20px]">
         <ul className="list-none space-y-[10px]">
+
+          {/* BALIK TO HOMEPAGE */}
+<li className="flex justify-start">
+  <NavLink
+    to="/"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={home}
+      alt="Home"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]">Home</span>
+  </NavLink>
+</li>
+
+
           {/* Dashboard */}
 <li className="flex justify-start">
   <NavLink
@@ -201,26 +220,11 @@ const Sidebar = () => {
       alt="Job order"
       className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
     />
-    <span className="text-[15px] ml-[5px]">Job Order</span>
+    <span className="text-[15px] ml-[5px]"> Orders</span>
   </NavLink>
 </li>
 
-{/* BALIK TO HOMEPAGE */}
-<li className="flex justify-start">
-  <NavLink
-    to="/"
-    className={({ isActive }) =>
-      `${itemBase} ${isActive ? activeItem : inactiveItem}`
-    }
-  >
-    <img
-      src={home}
-      alt="Home"
-      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
-    />
-    <span className="text-[15px] ml-[5px]">Home</span>
-  </NavLink>
-</li>
+
 
 {/* Logout */}
 <li className="flex justify-start">

@@ -113,7 +113,7 @@ const Homepage = () => {
           </h2>
         </div>
       </section>
-      <section className="bg-[#F5EFEF] py-10 px-6 md:px-16">
+      <section className="bg-[#F4E9E9] py-10 px-6 md:px-16">
         <div className="grid grid-cols-4 gap-8">
           {featuredProducts.map((p) => (
             <article key={p.id}>
