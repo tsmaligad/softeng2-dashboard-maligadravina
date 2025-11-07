@@ -53,8 +53,8 @@ const Contactpage = () => {
                     alt="Email Icon"
                     className="w-[20px] h-[20px] mt-[18px] mr-[10px]"
                   />
-                  <p className="underline underline-offset-2">
-                    carlasoseagangamido@gmail.com
+                  <p >
+                    carlaroseagangamido@gmail.com
                   </p>
                 </div>
 
@@ -96,7 +96,7 @@ const Contactpage = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="Enter your first name"
+                      placeholder=" Enter your first name"
                       className="w-[230px] bg-[#FDFBF9] mt-[5px] h-[25px] border border-[#463300ba] rounded-[10px] px-3 py-2.5 text-sm focus:outline-none "
                       />
                   </div>
@@ -106,7 +106,7 @@ const Contactpage = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="Enter your last name"
+                      placeholder=" Enter your last name"
                       className="w-[230px] bg-[#FDFBF9] mt-[5px] h-[25px] border border-[#463300ba] rounded-[10px] px-3 py-2.5 text-sm focus:outline-none "
                       />
                   </div>
@@ -120,7 +120,7 @@ const Contactpage = () => {
                     </label>
                     <input
                       type="email"
-                      placeholder="Enter your mail address"
+                      placeholder=" Enter your mail address"
                       className="w-[230px] bg-[#FDFBF9] mt-[5px] h-[25px] border border-[#463300ba] rounded-[10px] px-3 py-2.5 text-sm focus:outline-none "
                       />
                   </div>
@@ -132,7 +132,7 @@ const Contactpage = () => {
                       
                       <input
                         type="text"
-                        placeholder="+63"
+                        placeholder=" +63"
                         className="w-[230px] bg-[#FDFBF9] mt-[5px] h-[25px] border border-[#463300ba] rounded-[10px] px-3 py-2.5 text-sm focus:outline-none "
                       />
                     </div>
@@ -152,7 +152,7 @@ const Contactpage = () => {
       className="w-full bg-[#FDFBF9] mt-[5px] h-[25px] border border-[#463300ba] rounded-[10px] px-3 py-2.5 pr-8 text-sm text-[#332601] focus:outline-none appearance-none"
     >
       <option value="" disabled>
-        Select type of inquiry
+         Select type of inquiry
       </option>
       <option>Order Concern</option>
       <option>Product Inquiry</option>

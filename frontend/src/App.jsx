@@ -21,6 +21,8 @@ import Cart from './components/Cart.jsx';
 import Checkout from './components/Checkout.jsx';
 import ProductsManagement from './components/ProductsManagement.jsx';
 import JobOrder from './components/JobOrder.jsx'; 
+import EditPages from './components/EditPages.jsx';
+
 function App() {
   return (
     <Router>
@@ -47,6 +49,12 @@ function App() {
         <Route path="/inventory" element={
           <AdminRoute>
             <Inventory />
+          </AdminRoute>
+        }/>
+
+<Route path="/editpages" element={
+          <AdminRoute>
+            <EditPages />
           </AdminRoute>
         }/>
 

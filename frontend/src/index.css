@@ -6,6 +6,7 @@
 @font-face {
   font-family: "Kapakana";
   src: url("./assets/fonts/Kapakana-Regular.ttf") format("truetype");
+
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -21,6 +22,67 @@ html, body {
   padding: 0;
 }
 
+/* --- REVERT WHAT BOOTSTRAP BROKE --- */
+
+/* Force your font back */
 body {
-  font-family: 'Karla', 'Kapakana';
-}  
+  font-family: 'Karla', sans-serif !important;
+}
+
+
+/* Remove ALL bootstrapped underlines */
+a {
+  text-decoration: none !important;
+}
+
+/* Restore your product card styles */
+figure img {
+  object-fit: cover !important;
+  border-radius: 0 !important;
+}
+
+/* Restore text sizing for featured products */
+figcaption h3 {
+  font-size: 13px !important;
+  font-weight: 300 !important;
+  color: #463300 !important;
+}
+
+figcaption p {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #4A3600 !important;
+}
+
+/* --- FIX "Featured products" & all section titles --- */
+section h2,
+h2 {
+  font-family: 'Karla', 'Kapakana', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  
+ 
+}
+
+
+
+/* Zoom Keyframes */
+@keyframes heroZoom {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.08);
+  }
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+  z-index: 9999 !important;
+}
+
+.carousel-indicators {
+  z-index: 9999 !important;
+}
+

@@ -77,7 +77,7 @@ const Stickybar = () => {
   }
 
   return (
-    <header className="fixed top-0 left-0 w-full z-20 bg-[#F5EFEF] shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
+    <header className="fixed top-0 left-0 w-full z-[99999] bg-[#F5EFEF] shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
       <div className="grid grid-cols-3 items-center px-8 md:px-14 lg:px-20 h-[72px]">
         {/* Left: Logo */}
         <div className="flex items-center">

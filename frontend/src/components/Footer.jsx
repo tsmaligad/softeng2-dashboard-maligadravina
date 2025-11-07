@@ -50,14 +50,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="mt-[30px] py-6 text-center">
-        <a
-          href="#privacy"
-          className="text-[#F5EFEF] no-underline hover:underline"
-        >
-          Privacy Policy
-        </a>
-      </div>
+      
     </footer>
   );
 }

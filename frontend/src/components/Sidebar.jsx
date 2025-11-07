@@ -139,6 +139,24 @@ const Sidebar = () => {
   </NavLink>
 </li>
 
+{/* Edit Page */}
+<li className="flex justify-start">
+  <NavLink
+    to="/editpages"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={groupicon}
+      alt="Users"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]">Edit Pages</span>
+  </NavLink>
+</li>
+
+
 {/* Users */}
 <li className="flex justify-start">
   <NavLink

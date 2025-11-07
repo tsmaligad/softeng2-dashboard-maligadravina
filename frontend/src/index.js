@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom/client';
 import App from './App'; // Ensure this path points to your App component
 import reportWebVitals from './reportWebVitals';
 import "@fontsource/kapakana"; // defaults to weight 400
-
+import 'bootstrap/dist/css/bootstrap.min.css';
+import "bootstrap-icons/font/bootstrap-icons.css";
 import { api } from './utils/api';   // ⬅ add this
 window.api = api;                    // ⬅ now callable from DevTools
 console.log('[index] app booted');
