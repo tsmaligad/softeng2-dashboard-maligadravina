@@ -26,6 +26,15 @@ app.use(
   })
 );
 
+// ✅ ADD THIS DIRECTLY AFTER CORS AND JSON:
+const fs = require('fs');
+const path = require('path');
+
+// Serve uploaded hero images
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use('/uploads', express.static(UPLOAD_DIR));
+
 /* ---------------- MySQL pool ---------------- */
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -315,12 +324,381 @@ app.post("/register", async (req, res) => {
   }
 });
 
+/* ---------------- HOMEPAGE CONFIG ---------------- */
 
-/* ---------------- Start server ---------------- */
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Backend running → http://localhost:${PORT}`);
+async function loadHomepageConfig() {
+  try {
+    const [rows] = await pool.query(
+      `SELECT hero_url, hero_urls, featured_product_ids, faq_ids
+       FROM homepage_config
+       WHERE id = 1
+       LIMIT 1`
+    );
+    if (!rows.length) {
+      return { hero_url: null, hero_urls: [], featured_product_ids: [], faq_ids: [] };
+    }
+    const r = rows[0];
+    return {
+      hero_url: r.hero_url || null,
+      hero_urls: r.hero_urls ? JSON.parse(r.hero_urls) : [],   // ✅ new
+      featured_product_ids: r.featured_product_ids ? JSON.parse(r.featured_product_ids) : [],
+      faq_ids: r.faq_ids ? JSON.parse(r.faq_ids) : [],
+    };
+  } catch (e) {
+    console.warn('[homepage_config] load warning:', e.message);
+    return { hero_url: null, hero_urls: [], featured_product_ids: [], faq_ids: [] };
+  }
+}
+
+
+async function saveHomepageConfig({ hero_url = null, hero_urls = [], featured_product_ids = [], faq_ids = [] }) {
+  const [exists] = await pool.query(`SELECT id FROM homepage_config WHERE id = 1 LIMIT 1`);
+  if (exists.length) {
+    await pool.query(
+      `UPDATE homepage_config
+       SET hero_url=?, hero_urls=?, featured_product_ids=?, faq_ids=?
+       WHERE id=1`,
+      [
+        hero_url,
+        JSON.stringify(hero_urls),
+        JSON.stringify(featured_product_ids),
+        JSON.stringify(faq_ids)
+      ]
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO homepage_config (id, hero_url, hero_urls, featured_product_ids, faq_ids)
+       VALUES (1, ?, ?, ?, ?)`,
+      [
+        hero_url,
+        JSON.stringify(hero_urls),
+        JSON.stringify(featured_product_ids),
+        JSON.stringify(faq_ids)
+      ]
+    );
+  }
+}
+
+
+// Public: read homepage config
+app.get('/homepage', async (_req, res) => {
+  try {
+    const conf = await loadHomepageConfig(); // should return { hero_url, hero_urls, featured_product_ids, faq_ids }
+    res.json({
+      hero_url: conf.hero_url,
+      hero_urls: conf.hero_urls,              // ✅ include the array for carousel
+      featured_product_ids: conf.featured_product_ids,
+      faq_ids: conf.faq_ids,
+    });
+  } catch (e) {
+    console.error('GET /homepage error:', e);
+    res.status(500).json({ error: 'Failed to load homepage' });
+  }
 });
+
+
+// Admin only: update featured products + faqs
+app.put('/homepage', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { featured_product_ids = [], faq_ids = [] } = req.body || {};
+    const current = await loadHomepageConfig();
+    await saveHomepageConfig({ featured_product_ids, faq_ids, hero_url: current.hero_url });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /homepage error:', e);
+    res.status(500).json({ error: 'Failed to save homepage' });
+  }
+});
+
+// Admin only: upload hero image
+app.post('/homepage/hero', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    const ext = (req.file.mimetype && req.file.mimetype.split('/')[1]) || 'bin';
+    const filename = `hero_${Date.now()}.${ext}`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+    fs.writeFileSync(filepath, req.file.buffer);
+    const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+    const current = await loadHomepageConfig();
+    await saveHomepageConfig({
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+      hero_url: url,
+    });
+    res.json({ success: true, url });
+  } catch (e) {
+    console.error('POST /homepage/hero error:', e);
+    res.status(500).json({ success: false, error: 'Failed to upload hero image' });
+  }
+});
+
+// CLEAR single hero (your editor calls this but route doesn't exist yet)
+app.delete('/homepage/hero', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const current = await loadHomepageConfig();
+    await saveHomepageConfig({
+      hero_url: null,
+      hero_urls: current.hero_urls,
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /homepage/hero error:', e);
+    res.status(500).json({ success: false, error: 'Failed to clear hero image' });
+  }
+});
+
+// MULTI upload → append to hero_urls
+app.post('/homepage/heroes', requireAuth, requireAdmin, upload.array('files', 10), async (req, res) => {
+  try {
+    if (!req.files?.length) return res.status(400).json({ success: false, error: 'No files uploaded' });
+
+    const urls = [];
+    for (const f of req.files) {
+      const ext = (f.mimetype && f.mimetype.split('/')[1]) || 'bin';
+      const filename = `hero_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const filepath = path.join(UPLOAD_DIR, filename);
+      fs.writeFileSync(filepath, f.buffer);
+      urls.push(`${req.protocol}://${req.get('host')}/uploads/${filename}`);
+    }
+
+    const current = await loadHomepageConfig();
+    const merged = [...(current.hero_urls || []), ...urls];
+
+    await saveHomepageConfig({
+      hero_url: current.hero_url,                 // keep single hero if you still want it
+      hero_urls: merged,
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+    });
+
+    res.json({ success: true, hero_urls: merged });
+  } catch (e) {
+    console.error('POST /homepage/heroes error:', e);
+    res.status(500).json({ success: false, error: 'Failed to upload hero images' });
+  }
+});
+
+// Replace the whole hero_urls array
+app.put('/homepage/heroes', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { hero_urls = [] } = req.body || {};
+    const current = await loadHomepageConfig();
+    await saveHomepageConfig({
+      hero_url: current.hero_url,
+      hero_urls: Array.isArray(hero_urls) ? hero_urls : [],
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /homepage/heroes error:', e);
+    res.status(500).json({ success: false, error: 'Failed to save hero URLs' });
+  }
+});
+
+// DELETE /homepage/heroes/:index → remove one image by array index
+app.delete('/homepage/heroes/:index', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const idx = Number(req.params.index);
+    const current = await loadHomepageConfig();
+    const arr = Array.isArray(current.hero_urls) ? [...current.hero_urls] : [];
+    if (Number.isNaN(idx) || idx < 0 || idx >= arr.length) {
+      return res.status(400).json({ success: false, error: 'Invalid index' });
+    }
+    arr.splice(idx, 1);
+    await saveHomepageConfig({
+      hero_url: current.hero_url,
+      hero_urls: arr,
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+    });
+    res.json({ success: true, hero_urls: arr });
+  } catch (e) {
+    console.error('DELETE /homepage/heroes/:index error:', e);
+    res.status(500).json({ success: false, error: 'Failed to delete hero image' });
+  }
+});
+
+
+// ---------- FAQs ADMIN (CRUD) ----------
+// ---------- FAQs: public (read-only) ----------
+// ---------- PUBLIC FAQS ----------
+app.get('/api/faqs', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT id, q, a, COALESCE(sort_order, 0) AS sort_order
+      FROM faqs
+      WHERE enabled = 1
+      ORDER BY COALESCE(sort_order, 0), id
+    `);
+    res.json({ items: rows });
+  } catch (e) {
+    console.error('GET /api/faqs error:', e);
+    res.status(500).json({ error: 'Failed to load FAQs' });
+  }
+});
+
+app.get('/api/faqs-admin', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT id, q, a, enabled, COALESCE(sort_order,0) AS sort_order
+      FROM faqs
+      ORDER BY COALESCE(sort_order,0), id
+    `);
+    res.json({ items: rows });
+  } catch (e) {
+    console.error('GET /api/faqs-admin error:', e);
+    res.status(500).json({ error: 'Failed to load FAQs' });
+  }
+});
+
+
+
+
+app.post('/api/faqs-admin', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { q, a, enabled = 1, sort_order = 0 } = req.body || {};
+    if (!q || !a) return res.status(400).json({ error: 'q and a are required' });
+
+    const [result] = await pool.query(
+      `INSERT INTO faqs (q, a, enabled, sort_order) VALUES (?, ?, ?, ?)`,
+      [q, a, Number(enabled) ? 1 : 0, Number(sort_order) || 0]
+    );
+
+    res.status(201).json({ id: result.insertId, q, a, enabled: !!enabled, sort_order: Number(sort_order) || 0 });
+  } catch (e) {
+    console.error('POST /api/faqs-admin error:', e);
+    res.status(500).json({ error: 'Failed to create FAQ' });
+  }
+});
+
+app.put('/api/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { q, a, enabled, sort_order } = req.body || {};
+
+    await pool.query(`
+      UPDATE faqs
+      SET q = ?, a = ?, enabled = ?, sort_order = ?
+      WHERE id = ?
+    `, [
+      q ?? "",               // always keep q
+      a ?? "",               // always keep a
+      enabled ? 1 : 0,       // <<<<<<<<<< FIX: enforce boolean
+      Number(sort_order) || 0,
+      id
+    ]);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /api/faqs-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to update FAQ' });
+  }
+});
+
+
+
+app.delete('/api/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM faqs WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /api/faqs-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to delete FAQ' });
+  }
+});
+
+
+
+
+
+// Create FAQ
+// Create FAQ (legacy path but now consistent)
+app.post('/faqs-admin', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { q, a, is_active = 1, sort_order = 0 } = req.body || {};
+    if (!q || !a) return res.status(400).json({ error: 'q and a are required' });
+
+    const enabled = Number(is_active) ? 1 : 0; // map is_active -> enabled
+
+    const [result] = await pool.query(
+      `INSERT INTO faqs (q, a, enabled, sort_order) VALUES (?, ?, ?, ?)`,
+      [q, a, enabled, Number(sort_order) || 0]
+    );
+    res.status(201).json({ id: result.insertId, q, a, enabled: !!enabled, sort_order: Number(sort_order) || 0 });
+  } catch (e) {
+    console.error('POST /faqs-admin error:', e);
+    res.status(500).json({ error: 'Failed to create FAQ' });
+  }
+});
+
+app.put('/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { q, a, is_active, sort_order } = req.body || {};
+
+    const fields = [];
+    const vals = [];
+    if (q != null) { fields.push('q = ?'); vals.push(q); }
+    if (a != null) { fields.push('a = ?'); vals.push(a); }
+    if (is_active != null) { fields.push('enabled = ?'); vals.push(Number(is_active) ? 1 : 0); }
+    if (sort_order != null) { fields.push('sort_order = ?'); vals.push(Number(sort_order) || 0); }
+
+    if (!fields.length) return res.status(400).json({ error: 'No changes' });
+    vals.push(id);
+    await pool.query(`UPDATE faqs SET ${fields.join(', ')} WHERE id = ?`, vals);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /faqs-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to update FAQ' });
+  }
+});
+
+
+// Delete FAQ
+app.delete('/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM faqs WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /faqs-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to delete FAQ' });
+  }
+});
+
+// Bulk reorder (drag & drop)
+app.patch('/faqs-admin/reorder', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { ids = [] } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) {
+      return res.status(400).json({ error: 'ids[] required' });
+    }
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (let i = 0; i < ids.length; i++) {
+        await conn.query('UPDATE faqs SET sort_order = ? WHERE id = ?', [i, ids[i]]);
+      }
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (e) {
+    console.error('PATCH /faqs-admin/reorder error:', e);
+    res.status(500).json({ error: 'Failed to save order' });
+  }
+});
+
+
+
+
 
 /* ---------------- RAW MATERIALS ---------------- */
 
@@ -962,7 +1340,17 @@ app.delete("/api/addons/:id", async (req, res) => {
 
 // helper: get or create user cart
 async function getOrCreateCartId(userId) {
-  const [rows] = await pool.query('SELECT id FROM carts WHERE user_id=? LIMIT 1', [userId]);
+  const [rows] = await pool.query(
+    `SELECT 
+       id,
+       q,
+       a,
+       enabled,
+       COALESCE(enabled, 1)           AS is_active,
+       COALESCE(sort_order, 0)        AS sort_order
+     FROM faqs
+     ORDER BY COALESCE(sort_order, 0), id ASC`
+  );
   if (rows.length) return rows[0].id;
   const [ins] = await pool.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
   return ins.insertId;
@@ -1183,4 +1571,41 @@ app.post('/api/orders', async (req, res) => {
     console.error('POST /api/orders error:', err);
     res.status(500).json({ error: 'Failed to create order' });
   }
+});
+
+app.post('/homepage/heroes', requireAuth, requireAdmin, upload.array('files', 10), async (req, res) => {
+  try {
+    if (!req.files?.length) return res.status(400).json({ success: false, error: 'No files uploaded' });
+
+    const urls = [];
+    for (const f of req.files) {
+      const ext = (f.mimetype && f.mimetype.split('/')[1]) || 'bin';
+      const filename = `hero_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const filepath = path.join(UPLOAD_DIR, filename);
+      fs.writeFileSync(filepath, f.buffer);
+      urls.push(`${req.protocol}://${req.get('host')}/uploads/${filename}`);
+    }
+
+    const current = await loadHomepageConfig();
+    const merged = [...(current.hero_urls || []), ...urls];
+
+    await saveHomepageConfig({
+      hero_url: current.hero_url,
+      hero_urls: merged,
+      featured_product_ids: current.featured_product_ids,
+      faq_ids: current.faq_ids,
+    });
+
+    res.json({ success: true, hero_urls: merged }); // ← key fixed
+  } catch (e) {
+    console.error('POST /homepage/heroes error:', e);
+    res.status(500).json({ success: false, error: 'Failed to upload hero images' });
+  }
+});
+
+
+/* ---------------- Start server ---------------- */
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Backend running → http://localhost:${PORT}`);
 });
