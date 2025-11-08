@@ -579,17 +579,18 @@ app.put('/api/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { q, a, enabled, sort_order } = req.body || {};
 
-    await pool.query(`
-      UPDATE faqs
-      SET q = ?, a = ?, enabled = ?, sort_order = ?
-      WHERE id = ?
-    `, [
-      q ?? "",               // always keep q
-      a ?? "",               // always keep a
-      enabled ? 1 : 0,       // <<<<<<<<<< FIX: enforce boolean
-      Number(sort_order) || 0,
-      id
-    ]);
+    const fields = [];
+    const vals = [];
+
+    if (q != null)        { fields.push('q = ?');          vals.push(q); }
+    if (a != null)        { fields.push('a = ?');          vals.push(a); }
+    if (enabled != null)  { fields.push('enabled = ?');    vals.push(enabled ? 1 : 0); }
+    if (sort_order != null) { fields.push('sort_order = ?'); vals.push(Number(sort_order) || 0); }
+
+    if (!fields.length) return res.status(400).json({ error: 'No changes' });
+
+    vals.push(id);
+    await pool.query(`UPDATE faqs SET ${fields.join(', ')} WHERE id = ?`, vals);
 
     res.json({ success: true });
   } catch (e) {
@@ -597,6 +598,7 @@ app.put('/api/faqs-admin/:id', requireAuth, requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Failed to update FAQ' });
   }
 });
+
 
 
 
@@ -695,6 +697,169 @@ app.patch('/faqs-admin/reorder', requireAuth, requireAdmin, async (req, res) => 
     res.status(500).json({ error: 'Failed to save order' });
   }
 });
+
+/* ----------------------ABOUT US --------------------*/
+async function loadAbout() {
+  const [[pageRows], [imgRows]] = await Promise.all([
+    pool.query(`SELECT heading, body FROM about_page WHERE id = 1 LIMIT 1`),
+    pool.query(`
+      SELECT id, url, title, position, sort_order
+      FROM about_images
+      WHERE enabled = 1
+      ORDER BY sort_order, id
+    `)
+  ]);
+  const page = pageRows[0] || { heading: 'About Us', body: '' };
+  return { heading: page.heading || 'About Us', body: page.body || '', images: imgRows || [] };
+}
+
+async function loadAboutAdmin() {
+  const [[pageRows], [imgRows]] = await Promise.all([
+    pool.query(`SELECT heading, body FROM about_page WHERE id = 1 LIMIT 1`),
+    pool.query(`
+      SELECT id, url, title, position, sort_order, enabled
+      FROM about_images
+      ORDER BY sort_order, id
+    `)
+  ]);
+  const page = pageRows[0] || { heading: 'About Us', body: '' };
+  return { heading: page.heading || 'About Us', body: page.body || '', images: imgRows || [] };
+}
+
+async function saveAbout({ heading, body }) {
+  const [exists] = await pool.query(`SELECT id FROM about_page WHERE id = 1 LIMIT 1`);
+  if (exists.length) {
+    await pool.query(`UPDATE about_page SET heading=?, body=? WHERE id=1`, [heading || '', body || '']);
+  } else {
+    await pool.query(`INSERT INTO about_page (id, heading, body) VALUES (1, ?, ?)`, [heading || '', body || '']);
+  }
+}
+// ----------- ABOUT: Public -----------
+app.get('/api/about', async (_req, res) => {
+  try {
+    const data = await loadAbout();
+    res.json(data); // {heading, body, images:[...]}
+  } catch (e) {
+    console.error('GET /api/about error:', e);
+    res.status(500).json({ error: 'Failed to load About page' });
+  }
+});
+
+// ----------- ABOUT: Admin -----------
+app.get('/api/about-admin', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const data = await loadAboutAdmin();
+    res.json(data);
+  } catch (e) {
+    console.error('GET /api/about-admin error:', e);
+    res.status(500).json({ error: 'Failed to load About admin' });
+  }
+});
+
+app.put('/api/about-admin', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { heading = '', body = '' } = req.body || {};
+    await saveAbout({ heading, body });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /api/about-admin error:', e);
+    res.status(500).json({ error: 'Failed to save About text' });
+  }
+});
+
+// Upload image (optional – to store files on server)
+app.post('/api/about-images-admin/upload', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const ext = (req.file.mimetype && req.file.mimetype.split('/')[1]) || 'bin';
+    const filename = `about_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), req.file.buffer);
+    const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+    res.json({ success: true, url });
+  } catch (e) {
+    console.error('POST /api/about-images-admin/upload error:', e);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+// Create image
+app.post('/api/about-images-admin', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { url, title = '', position = 'center', enabled = 1 } = req.body || {};
+    if (!url) return res.status(400).json({ error: 'url required' });
+    // next sort_order
+    const [maxRow] = await pool.query(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM about_images`);
+    const nextOrder = Number(maxRow[0].m) + 1;
+    const [ins] = await pool.query(
+      `INSERT INTO about_images (url, title, position, sort_order, enabled) VALUES (?, ?, ?, ?, ?)`,
+      [url, title, position, nextOrder, enabled ? 1 : 0]
+    );
+    res.status(201).json({ id: ins.insertId });
+  } catch (e) {
+    console.error('POST /api/about-images-admin error:', e);
+    res.status(500).json({ error: 'Failed to add image' });
+  }
+});
+
+// Update image (dynamic fields)
+app.put('/api/about-images-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { url, title, position, enabled, sort_order } = req.body || {};
+    const fields = [], vals = [];
+    if (url != null)       { fields.push('url=?');        vals.push(url); }
+    if (title != null)     { fields.push('title=?');      vals.push(title); }
+    if (position != null)  { fields.push('position=?');   vals.push(position); }
+    if (enabled != null)   { fields.push('enabled=?');    vals.push(enabled ? 1 : 0); }
+    if (sort_order != null){ fields.push('sort_order=?'); vals.push(Number(sort_order)||0); }
+
+    if (!fields.length) return res.status(400).json({ error: 'No changes' });
+    vals.push(id);
+    await pool.query(`UPDATE about_images SET ${fields.join(', ')} WHERE id=?`, vals);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /api/about-images-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to update image' });
+  }
+});
+
+// Delete image
+app.delete('/api/about-images-admin/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM about_images WHERE id=?`, [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('DELETE /api/about-images-admin/:id error:', e);
+    res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
+// Reorder images in bulk
+app.patch('/api/about-images-admin/reorder', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { ids = [] } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids[] required' });
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (let i = 0; i < ids.length; i++) {
+        await conn.query('UPDATE about_images SET sort_order=? WHERE id=?', [i, ids[i]]);
+      }
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (e) {
+    console.error('PATCH /api/about-images-admin/reorder error:', e);
+    res.status(500).json({ error: 'Failed to save order' });
+  }
+});
+
+
 
 
 
@@ -1341,20 +1506,14 @@ app.delete("/api/addons/:id", async (req, res) => {
 // helper: get or create user cart
 async function getOrCreateCartId(userId) {
   const [rows] = await pool.query(
-    `SELECT 
-       id,
-       q,
-       a,
-       enabled,
-       COALESCE(enabled, 1)           AS is_active,
-       COALESCE(sort_order, 0)        AS sort_order
-     FROM faqs
-     ORDER BY COALESCE(sort_order, 0), id ASC`
+    `SELECT id FROM carts WHERE user_id = ? LIMIT 1`,
+    [userId]
   );
   if (rows.length) return rows[0].id;
   const [ins] = await pool.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
   return ins.insertId;
 }
+
 
 // GET /api/cart → current user's cart with product info
 app.get('/api/cart', requireAuth, async (req, res) => {

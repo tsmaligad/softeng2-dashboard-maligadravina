@@ -1,5 +1,6 @@
 import React from "react";
 import Stickybar from "./Stickybar";
+import Footer from "./Footer";
 import { api } from "../utils/api";
 
 const FaqPage = () => {
@@ -33,12 +34,14 @@ const FaqPage = () => {
       <Stickybar />
       {/* ✅ keep your header exactly the same */}
       <div className="pt-[72px]">
-        <section className="bg-[#4A3600] h-[90px] mb-[70px]" />
+        <section className="bg-[#4A3600] h-[90px] " />
       </div>
 
-      <main className="flex items-start justify-center">
-        <div className="w-full max-w-[1200px] mx-auto px-4 pb-16">
-          <h1 className="text-5xl font-kapakana italic text-left text-[#332601] mb-4">
+      <main className="flex items-start justify-center bg-[#F5EFEF]">
+
+      <div className="w-full max-w-[1200px] mx-auto px-4 mb-[120px]">
+
+          <h1 className="text-5xl font-kapakana italic text-left text-[#332601] mt-[70px] mb-4">
             Frequently Asked Questions
           </h1>
           <hr className="border-t border-[#8b7760]" />
@@ -96,6 +99,7 @@ const FaqPage = () => {
           )}
         </div>
       </main>
+      <Footer />
     </>
   );
 };

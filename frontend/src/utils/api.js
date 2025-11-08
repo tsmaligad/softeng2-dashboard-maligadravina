@@ -331,7 +331,107 @@ deleteFaq: async (id) => {
   return handleJson(res, text);
 },
 
+reorderFaqs: async (ids) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/faqs-admin/reorder`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ids }),
+  });
+  return handleJson(res, text);
+},
 
+/* ------------ about usssssssssss ----------------*/
+// -------- ABOUT (public) --------
+getAbout: async () => {
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about`);
+  return handleJson(res, text); // {heading, body, images:[...]}
+},
+
+// -------- ABOUT (admin) --------
+getAboutAdmin: async () => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-admin`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleJson(res, text);
+},
+
+updateAboutText: async ({ heading, body }) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-admin`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ heading, body }),
+  });
+  return handleJson(res, text);
+},
+
+uploadAboutImage: async (file) => {
+  const token = getToken();
+  const fd = new FormData();
+  fd.append("file", file);
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin/upload`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  return handleJson(res, text); // { success, url }
+},
+
+createAboutImage: async ({ url, title, position, enabled = 1 }) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ url, title, position, enabled }),
+  });
+  return handleJson(res, text); // { id }
+},
+
+updateAboutImage: async (id, payload) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  return handleJson(res, text);
+},
+
+deleteAboutImage: async (id) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleJson(res, text);
+},
+
+reorderAboutImages: async (ids) => {
+  const token = getToken();
+  const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin/reorder`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ids }),
+  });
+  return handleJson(res, text);
+},
 
   
 };
