@@ -11,7 +11,7 @@ export default function Footer() {
             Sweet Treats Davao
           </h3>
           <a
-            href="tel:+639261129632"
+            
             className="text-[#F8B8B8] mt-[67px] mr-[150px] hover:underline"
           >
             +63 926 112 9632
@@ -35,7 +35,7 @@ export default function Footer() {
           <div className="text-right space-y-2">
             <p>
               <a
-                href="mailto:carlaroseagangamido@gmail.com"
+                
                 className="text-[#F5EFEF] no-underline hover:underline"
               >
                 carlaroseagangamido@gmail.com

@@ -41,8 +41,13 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // ✅ go to homepage after successful login (admin or not)
-      navigate("/");
+      if (data.role === "admin") {
+        navigate("/admin-dashboard");   // admin → dashboard
+      } else {
+        navigate("/");            // user → homepage
+      }
+
+
     } catch (err) {
       console.error("[LoginPage] error from api.adminLogin:", err);
       setError(err.message || "Login failed");

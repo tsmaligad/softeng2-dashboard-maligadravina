@@ -1,366 +1,359 @@
-import React, { useEffect, useMemo, useState } from "react";
+// src/components/UserList.jsx
+import React, { useEffect, useState } from "react";
+import Sidebar from "../components/Sidebar";
 import { api } from "../utils/api";
-import Sidebar from "./Sidebar.jsx";
-import search from "../assets/search.png";
+import searchIcon from "../assets/search.png"
 
-function formatDateLong(iso) {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-
-const UserList = () => {
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function UserList() {
   const [users, setUsers] = useState([]);
-  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    id: null,
     name: "",
     email: "",
-    role: "user",
-    is_active: true,
     password: "",
+    role: "user",     // "user" = Customer
+    is_active: 1,     // 1 = active, 0 = inactive
   });
-  const isEditing = useMemo(() => form.id !== null, [form.id]);
-  const [viewUser, setViewUser] = useState(null);
 
-  async function load() {
-    setLoading(true);
-    setError("");
+  const [editingId, setEditingId] = useState(null);
+
+  async function loadUsers() {
     try {
-      const data = await api.getUsers(q);
-      setUsers(data);
+      setLoading(true);
+      const list = await api.getUsers(search); // backend supports ?q=
+      setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
-      setError(e.message);
+      console.error("Failed to load users:", e);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    loadUsers();
   }, []);
 
-  function handleSearchSubmit(e) {
-    e.preventDefault();   // stop page refresh
-    load();               // runs your fetch using `q`
-  }
-  
-
-  async function onSubmit(e) {
+  const handleSave = async (e) => {
     e.preventDefault();
     try {
-      if (isEditing) {
-        const payload = {
-          name: form.name,
-          email: form.email,
-          role: form.role,
-          is_active: form.is_active ? 1 : 0,
-        };
-        if (form.password) payload.password = form.password;
-        await api.updateUser(form.id, payload);
+      const payload = {
+        ...form,
+        is_active: parseInt(form.is_active, 10),
+      };
+
+      if (editingId) {
+        await api.updateUser(editingId, payload);
       } else {
-        await api.createUser({
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          role: form.role,
-          is_active: form.is_active ? 1 : 0,
-        });
+        await api.createUser(payload);
       }
+
       setForm({
-        id: null,
         name: "",
         email: "",
-        role: "user",
-        is_active: true,
         password: "",
+        role: "user",
+        is_active: 1,
       });
-      await load();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setEditingId(null);
+      loadUsers();
     } catch (e) {
-      alert(e.message);
+      console.error(e);
+      alert("Failed to save.");
     }
-  }
+  };
 
-  function startEdit(u) {
+  const handleEdit = (u) => {
+    setEditingId(u.id);
     setForm({
-      id: u.id,
       name: u.name,
       email: u.email,
-      role: u.role,
-      is_active: !!u.is_active,
       password: "",
+      role: u.role || "user",
+      is_active: u.is_active ? 1 : 0,
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  };
 
-  async function remove(id) {
-    if (!confirm("Delete this user?")) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this user?")) return;
     try {
       await api.deleteUser(id);
-      await load();
+      loadUsers();
     } catch (e) {
-      alert(e.message);
+      console.error(e);
     }
-  }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    loadUsers();
+  };
 
   return (
-    <div className="flex gap-10 min-h-screen bg-gradient-to-b from-[#FAF9F7] to-[#F3F1ED] text-[#332601]">
-      <Sidebar />
+    <>
+      {/* ===== Scoped CSS to mimic Inventory / RawMaterials ===== */}
+      <style>{`
+        /* Page bg like Inventory */
+        div.flex-1.p-6 {
+          background: #f5efef;
+        }
 
-      <main className="flex-1">
-        <div className="ml-[30px] mr-[30px] mx-auto max-w-6xl px-8 py-10">
-          <h1 className="text-3xl font-bold tracking-tight text-[#332601] mb-8 mt-[30px]">
-            User Management
-          </h1>
+        /* Card around table */
+        div.flex-1.p-6 .table-wrapper {
+          border: 1px solid #eadbd8;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+          border-radius: 16px !important;
+        }
 
-          <hr className="border-t border-[#8b7760]" />
+        /* Form card */
+        div.flex-1.p-6 form.user-form {
+          background: #fff;
+          border: 1px solid #eadbd8;
+          border-radius: 16px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
 
-          {/* Search */}
-         {/* <div className="pt-[42px] mb-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search name or email…"
-              className="w-full sm:max-w-md rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm shadow-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none"
-            />
-            <button
-              onClick={load}
-              className="px-2 py-1 bg-[#4A3600] text-white rounded mb-[30px]"
-            >
-              Search
-            </button>
-          </div> */}
+        /* Inputs/selects inside form */
+        div.flex-1.p-6 form.user-form input,
+        div.flex-1.p-6 form.user-form select {
+          border-color: #bdaaa2 !important;
+          border-radius: 9999px !important;
+          height: 40px;
+        }
+
+        /* Primary button in form */
+        div.flex-1.p-6 form.user-form button[type="submit"] {
+          background: #ffc6c6 !important;
+          color: #332601 !important;
+          border: 1px solid #e7b2b2;
+          border-radius: 9999px !important;
+          padding: 10px 20px;
+          font-weight: 600;
+        }
+        div.flex-1.p-6 form.user-form button[type="submit"]:hover {
+          filter: brightness(0.97);
+        }
+
+        /* Search pill */
+        div.flex-1.p-6 .search-inner {
+  border: 1px solid #bdaaa2 !important;
+  border-radius: 9999px !important;
+  overflow: hidden;      /* ✨ fixes the black line */
+}
+
+        div.flex-1.p-6 .search-input {
+          height: 40px;
+          border: none;
+        }
+        div.flex-1.p-6 .search-btn {
+  background: #ffc6c6;
+  border: none !important;       /* ✨ no borders at all */
+  outline: none !important;      /* ✨ remove black focus halo */
+  box-shadow: none !important;   /* ✨ remove hover shadow */
+}
+div.flex-1.p-6 .search-btn:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
 
+        /* Table header (soft peach) */
+        div.flex-1.p-6 table.user-table thead tr {
+          background: #ffe1e1 !important;
+        }
+        div.flex-1.p-6 table.user-table thead th {
+          color: #4a3600;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          border-color: #f3d6d6 !important;
+        }
 
-          {/* Create / Edit Form */}
+        /* Table rows */
+        div.flex-1.p-6 table.user-table tbody td {
+          border-color: #f1e3e3 !important;
+        }
+        div.flex-1.p-6 table.user-table tbody tr:hover {
+          background: #fcf7f7;
+        }
+
+        /* Action buttons */
+        div.flex-1.p-6 table.user-table tbody button {
+          border-radius: 9999px !important;
+          padding: 6px 12px;
+          border: 1px solid transparent;
+        }
+        div.flex-1.p-6 table.user-table tbody button.btn-edit {
+          background: #f2e4c4 !important;
+          color: #4a3600 !important;
+          border-color: #f5d987;
+        }
+        div.flex-1.p-6 table.user-table tbody button.btn-delete {
+          background: #ffd1d1 !important;
+          color: #7a1f1f !important;
+          border-color: #f3bbbb;
+        }
+
+        /* Heading tone */
+        div.flex-1.p-6 > h1 {
+          color: #332601;
+          margin-top: 6px;
+          margin-bottom: 18px;
+        }
+      `}</style>
+
+      <div className="flex bg-[#F5EFEF] min-h-screen">
+        <Sidebar />
+
+        <div className="flex-1 p-6 mt-[30px] ml-[30px] mr-[30px]">
+          <h1 className="text-3xl font-bold mb-3">User Management</h1>
+
+          {/* ADD / EDIT FORM – 1st row: name/email/role; 2nd row: password/active/button */}
           <form
-            onSubmit={onSubmit}
-            className="mb-10 grid grid-cols-1 md:grid-cols-6 gap-4 bg-white p-6 rounded-2xl shadow-md border border-gray-200 mt-[40px]"
-          >
-            <input
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none md:col-span-2"
-              placeholder="Full name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-            />
-            <input
-              type="email"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none md:col-span-2"
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              required
-            />
-            <select
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none"
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-            >
-              <option value="user">Customer</option>
-              <option value="admin">Admin</option>
-            </select>
-
-            <label className="flex items-center gap-2 text-sm px-2">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, is_active: e.target.checked }))
-                }
-              />
-              <span>Active</span>
-            </label>
-
-            <input
-              type="password"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-[#4A3600] focus:outline-none md:col-span-3"
-              placeholder={isEditing ? "New password (optional)" : "Password"}
-              value={form.password}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, password: e.target.value }))
-              }
-              required={!isEditing}
-            />
-
-            <button
-              type="submit"
-              className="rounded-xl bg-[#4A3600] text-white px-5 py-2.5 text-sm font-medium shadow-md hover:bg-[#3a2a00] transition md:col-span-3"
-            >
-              {isEditing ? "Save Changes" : "Add User"}
-            </button>
-          </form>
-
-          {/* Search */}
-<form
-  onSubmit={handleSearchSubmit}
-  className="pt-[42px] flex items-center justify-center"
+  onSubmit={handleSave}
+  className="user-form bg-white shadow-md p-4 mb-6 flex flex-wrap gap-4 rounded-lg"
 >
-  <div className="flex w-full sm:max-w-4xl rounded overflow-hidden shadow-sm border border-gray-300">
+  {/* ROW 1 — Full name, email, password */}
+  <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
     <input
-      value={q}
-      onChange={(e) => setQ(e.target.value)}
-      placeholder="Search name or email"
-      className="flex-1 px-4 py-2 text-sm focus:outline-none"
+      type="text"
+      placeholder="Full name"
+      value={form.name}
+      onChange={(e) => setForm({ ...form, name: e.target.value })}
+      className="border px-3 py-2 flex-1 min-w-[220px]"
     />
-    <button
-      type="submit"   // ✅ submit triggers Enter key too
-      className="bg-[#FFC6C6] px-4 flex items-center justify-center"
-      aria-label="Search"
-      title="Search"
-    >
-      <img src={search} alt="" className="w-[20px] h-[20px]" />
-    </button>
+
+    <input
+      type="email"
+      placeholder="Email"
+      value={form.email}
+      onChange={(e) => setForm({ ...form, email: e.target.value })}
+      className="border px-3 py-2 flex-1 min-w-[220px]"
+    />
+
+    <input
+      type="password"
+      placeholder={editingId ? "New Password (optional)" : "Password"}
+      value={form.password}
+      onChange={(e) => setForm({ ...form, password: e.target.value })}
+      className="border px-3 py-2 flex-1 min-w-[220px]"
+    />
   </div>
+
+  {/* ROW 2 — Role, Active/Inactive, Button */}
+<div className="flex w-full flex-wrap md:flex-nowrap gap-4 items-center justify-between">
+
+{/* LEFT SIDE (dropdowns) */}
+<div className="flex gap-4 flex-wrap">
+  <select
+    value={form.role}
+    onChange={(e) => setForm({ ...form, role: e.target.value })}
+    className="border pr-[10px] px-3 py-2 min-w-[200px]"
+  >
+    <option value="user">Customer</option>
+    <option value="admin">Admin</option>
+  </select>
+
+  <select
+    value={form.is_active}
+    onChange={(e) => setForm({ ...form, is_active: e.target.value })}
+    className="border px-3 py-2 min-w-[200px]"
+  >
+    <option value={1}>Active</option>
+    <option value={0}>Inactive</option>
+  </select>
+</div>
+
+{/* RIGHT SIDE (button) */}
+<button
+  type="submit"
+  className="px-6 py-2 min-w-[150px]"
+>
+  {editingId ? "Update" : "Add User"}
+</button>
+</div>
+
 </form>
 
 
+          {/* SEARCH BAR – like Inventory */}
+          <form onSubmit={handleSearchSubmit} className="mb-6">
+            <div className="mt-[20px] flex w-full rounded-full overflow-hidden shadow-sm border search-inner">
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 px-4 py-2 text-sm focus:outline-none search-input"
+              />
+              <button type="submit" className="px-4 flex items-center justify-center search-btn">
+  <img src={searchIcon} alt="search" className="w-[18px] h-[18px] opacity-70" />
+</button>
+            </div>
+          </form>
 
-          
-
-
-          {/* Users Table */}
-          <div className="rounded-2xl bg-white shadow-md border border-gray-200 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className=" text-gray-700 text-gray-700 text-xs uppercase tracking-wide">
+          {/* USERS TABLE – styled like Inventory table */}
+          <div className=" mt-[20px] bg-white shadow-md rounded-lg overflow-hidden table-wrapper mt-[10px]">
+            <table className="w-full text-left border-collapse user-table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3">Name</th>
-                  <th className="px-6 py-3">Role</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+                  <th className="p-3 border">ID</th>
+                  <th className="p-3 border">Name</th>
+                  <th className="p-3 border">Email</th>
+                  <th className="p-3 border">Role</th>
+                  <th className="p-3 border">Status</th>
+                  <th className="p-3 border">Created</th>
+                  <th className="p-3 border text-center">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="px-6 py-6 text-center" colSpan={5}>
+                    <td colSpan="7" className="p-4 text-center">
                       Loading…
                     </td>
                   </tr>
-                ) : error ? (
-                  <tr>
-                    <td
-                      className="px-6 py-6 text-center text-red-600"
-                      colSpan={5}
-                    >
-                      {error}
-                    </td>
-                  </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td className="px-6 py-6 text-center" colSpan={5}>
-                      No users found.
-                    </td>
-                  </tr>
-                ) : (
+                ) : users.length ? (
                   users.map((u) => (
-                    <tr
-                      key={u.id}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="px-6 py-3">
-                        <div className="font-medium">{u.name}</div>
-                        <div className="text-xs text-gray-500">{u.email}</div>
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="p-3 border">{u.id}</td>
+                      <td className="p-3 border">{u.name}</td>
+                      <td className="p-3 border">{u.email}</td>
+                      <td className="p-3 border capitalize">{u.role}</td>
+                      <td className="p-3 border">
+                        {u.is_active ? "Active" : "Inactive"}
                       </td>
-                      <td className="px-6 py-3 capitalize">
-                        {u.role === "user" ? "Customer" : u.role}
+                      <td className="p-3 border">
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString()
+                          : "—"}
                       </td>
-                      <td className="px-6 py-3">
-                        {u.is_active ? (
-                          <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 border border-green-200">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 border border-gray-300">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3">
-                        {formatDateLong(u.created_at)}
-                      </td>
-                      <td className="px-6 py-3">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="p-3 border text-center">
+                        <div className="flex gap-2 justify-center">
                           <button
-                            onClick={() => setViewUser(u)}
-                            className="rounded-lg border px-3 py-1.5 text-xs hover:bg-gray-100 transition"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => startEdit(u)}
-                            className="rounded-lg border px-3 py-1.5 text-xs hover:bg-gray-100 transition"
+                            onClick={() => handleEdit(u)}
+                            className="btn-edit"
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => remove(u.id)}
-                            className="rounded-lg border px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition"
-                          >
-                            Delete
-                          </button>
+                          
                         </div>
                       </td>
                     </tr>
                   ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="p-4 text-center text-gray-500">
+                      No users found
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
-
-          {/* View Modal */}
-          {viewUser && (
-            <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-              <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">User Details</h2>
-                  <button
-                    onClick={() => setViewUser(null)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-medium">Name:</span> {viewUser.name}
-                  </div>
-                  <div>
-                    <span className="font-medium">Email:</span> {viewUser.email}
-                  </div>
-                  <div>
-                    <span className="font-medium">Role:</span>{" "}
-                    {viewUser.role === "user" ? "Customer" : viewUser.role}
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span>{" "}
-                    {viewUser.is_active ? "Active" : "Inactive"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Created:</span>{" "}
-                    {formatDateLong(viewUser.created_at)}
-                  </div>
-                  <div>
-                    <span className="font-medium">User ID:</span> {viewUser.id}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
-};
-
-export default UserList;
+}

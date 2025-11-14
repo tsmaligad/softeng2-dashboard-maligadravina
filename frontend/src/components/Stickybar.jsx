@@ -127,9 +127,7 @@ const Stickybar = () => {
 
         {/* Right: Icons */}
         <div className="flex items-center justify-end gap-6">
-          <button aria-label="Search" className="bg-transparent p-0 border-0 focus:outline-none">
-            <img src={SearchIcon} alt="Search" className="h-[22px] w-[22px] mr-[7px]" />
-          </button>
+        
 
           {/* User dropdown */}
           <div className="relative" ref={menuRef}>
@@ -138,7 +136,7 @@ const Stickybar = () => {
               aria-label="User menu"
               onClick={handleUserClick}
               disabled={authLoading}
-              className="bg-transparent p-0 border-0 focus:outline-none disabled:opacity-50"
+              className="bg-transparent mr-[6px] p-0 border-0 focus:outline-none disabled:opacity-50"
             >
               <img src={UserIcon} alt="User Account" className="h-[22px] w-[22px] mr-[7px]" />
             </button>
