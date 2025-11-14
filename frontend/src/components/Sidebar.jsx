@@ -242,7 +242,22 @@ const Sidebar = () => {
   </NavLink>
 </li>
 
-
+{/* CONTACT FORMS */}
+<li className="flex justify-start">
+  <NavLink
+    to="/admincontact"
+    className={({ isActive }) =>
+      `${itemBase} ${isActive ? activeItem : inactiveItem}`
+    }
+  >
+    <img
+      src={order}
+      alt="Contact Forms"
+      className={`w-[16px] ml-[25px] h-[16px] ${location.pathname === "/userlist" ? "filter-none" : "filter brightness-0 invert"}`}
+    />
+    <span className="text-[15px] ml-[5px]"> Contact Forms</span>
+  </NavLink>
+</li>
 
 {/* Logout */}
 <li className="flex justify-start">

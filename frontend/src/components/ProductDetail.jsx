@@ -6,7 +6,6 @@ import Footer from "./Footer";
 import { cartStore } from "../utils/cartStore";
 
 const API = "http://localhost:8080";
-const LS_KEY = "cart";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -92,9 +91,11 @@ export default function ProductDetail() {
     ? `${API}${product.image_url}`
     : "/placeholder.png";
 
-  function addToCart() {
+  async function addToCart() {
     if (!product) return;
+
     const unitPrice = Number(product.price ?? product.base_price ?? 0);
+
     const notes = [
       size ? `Size: ${size}` : "",
       flavorTop ? `Top: ${flavorTop}` : "",
@@ -107,33 +108,14 @@ export default function ProductDetail() {
       .filter(Boolean)
       .join(" | ");
 
-    let cart = [];
-    try {
-      cart = JSON.parse(localStorage.getItem(LS_KEY)) || [];
-    } catch {
-      cart = [];
-    }
+    // ✅ Use shared cartStore so key matches Cart.jsx (cart_guest / cart_email)
+    await cartStore.add({
+      product_id: product.id,
+      qty: Number(qty || 1),
+      unit_price: unitPrice,
+      notes: notes || "",
+    });
 
-    const idx = cart.findIndex(
-      (it) =>
-        String(it.product_id) === String(product.id) &&
-        (it.notes || "") === (notes || "")
-    );
-
-    if (idx >= 0) {
-      cart[idx].qty = Math.min(999, Number(cart[idx].qty || 0) + Number(qty || 1));
-    } else {
-      cart.push({
-        product_id: product.id,
-        qty: Number(qty || 1),
-        unit_price: unitPrice,
-        notes: notes || "",
-        name: product.name,
-        image_url: product.image_url ? `${API}${product.image_url}` : null,
-      });
-    }
-
-    localStorage.setItem(LS_KEY, JSON.stringify(cart));
     alert("Added to cart!");
   }
 
@@ -143,14 +125,12 @@ export default function ProductDetail() {
 
       {/* full background wrapper */}
       <div className="bg-[#F5EFEF] min-h-screen pt-[72px]">
-
         {/* top brown bar */}
         <section className="bg-[#4A3600] h-[90px] mb-[70px]" />
 
         {/* MAIN SECTION */}
         <main className="flex items-start justify-center">
           <div className="w-full max-w-[1200px] mx-auto px-4 grid gap-10 lg:grid-cols-[520px_1fr]">
-            
             {/* Left - Images */}
             <section>
               <div className="rounded-2xl overflow-hidden border-[3px] border-[#5B4220]">
@@ -250,29 +230,28 @@ export default function ProductDetail() {
               )}
 
               {/* Quantity */}
-<div className="mt-5">
-  <p className="text-xs text-[#332601] mb-1">Quantity:</p>
-  <div className="flex items-center justify-between w-[120px] border border-[#5B4220] rounded-sm px-4 py-1.5 bg-transparent">
-    <button
-      type="button"
-      onClick={() => setQty((q) => Math.max(1, q - 1))}
-      className="text-[#5B4220] text-lg font-semibold leading-none hover:opacity-70"
-    >
-      –
-    </button>
-    <span className="text-[#332601] select-none text-sm font-medium">{qty}</span>
-    <button
-      type="button"
-      onClick={() => setQty((q) => q + 1)}
-      className="text-[#5B4220] text-lg font-semibold leading-none hover:opacity-70"
-    >
-      +
-    </button>
-  </div>
-</div>
-
-
-
+              <div className="mt-5">
+                <p className="text-xs text-[#332601] mb-1">Quantity:</p>
+                <div className="flex items-center justify-between w-[120px] border border-[#5B4220] rounded-sm px-4 py-1.5 bg-transparent">
+                  <button
+                    type="button"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="text-[#5B4220] text-lg font-semibold leading-none hover:opacity-70"
+                  >
+                    –
+                  </button>
+                  <span className="text-[#332601] select-none text-sm font-medium">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQty((q) => q + 1)}
+                    className="text-[#5B4220] text-lg font-semibold leading-none hover:opacity-70"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
 
               {/* Cake and Cupcake Notes */}
               <div className="mt-5">

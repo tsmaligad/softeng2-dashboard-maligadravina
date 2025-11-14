@@ -841,7 +841,7 @@ app.patch('/api/about-images-admin/reorder', requireAuth, requireAdmin, async (r
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids[] required' });
     const conn = await pool.getConnection();
     try {
-      await conn.beginTransaction();
+      await cAonn.beginTransaction();
       for (let i = 0; i < ids.length; i++) {
         await conn.query('UPDATE about_images SET sort_order=? WHERE id=?', [i, ids[i]]);
       }
@@ -858,6 +858,53 @@ app.patch('/api/about-images-admin/reorder', requireAuth, requireAdmin, async (r
     res.status(500).json({ error: 'Failed to save order' });
   }
 });
+
+// POST /api/contact-messages
+app.post('/api/contact-messages', async (req, res) => {
+  try {
+    const {
+      first_name,
+      last_name,
+      email,
+      contact_number,
+      inquiry_type,
+      message
+    } = req.body || {};
+
+    if (!first_name || !email || !message) {
+      return res.status(400).json({ error: "Required fields missing" });
+    }
+
+    await pool.query(
+      `INSERT INTO contact_messages 
+       (first_name, last_name, email, contact_number, inquiry_type, message)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [first_name, last_name, email, contact_number, inquiry_type, message]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("POST /api/contact-messages error:", err);
+    res.status(500).json({ error: "Failed to save message" });
+  }
+});
+
+// GET /api/contact-messages
+app.get('/api/contact-messages', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, first_name, last_name, email, contact_number,
+              inquiry_type, message, status, created_at
+       FROM contact_messages
+       ORDER BY created_at DESC`
+    );
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("GET /api/contact-messages error:", err);
+    res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
 
 
 
@@ -1759,6 +1806,65 @@ app.post('/homepage/heroes', requireAuth, requireAdmin, upload.array('files', 10
   } catch (e) {
     console.error('POST /homepage/heroes error:', e);
     res.status(500).json({ success: false, error: 'Failed to upload hero images' });
+  }
+});
+
+// server.js (or routes/contactMessages.js, wherever your routes live)
+app.post("/api/contact-messages/:id/reply", async (req, res) => {
+  const { id } = req.params;
+  const { subject, body } = req.body;
+
+  if (!subject || !body) {
+    return res.status(400).json({
+      success: false,
+      message: "Subject and body are required.",
+    });
+  }
+
+  try {
+    // 1) Look up the original message so we know where to reply
+    const [rows] = await db.query(
+      "SELECT email FROM contact_messages WHERE id = ?",
+      [id]
+    );
+
+    if (!rows.length || !rows[0].email) {
+      return res.status(404).json({
+        success: false,
+        message: "Original contact message or email not found.",
+      });
+    }
+
+    const recipientEmail = rows[0].email;
+
+    // 2) (Optional) Send the email using nodemailer or similar
+    // Example if you have nodemailer set up:
+    /*
+    await transporter.sendMail({
+      from: '"Sweet Treats Davao" <no-reply@sweettreats.com>',
+      to: recipientEmail,
+      subject,
+      text: body,
+    });
+    */
+
+    // 3) Update status in DB to 'replied'
+    await db.query(
+      "UPDATE contact_messages SET status = ? WHERE id = ?",
+      ["replied", id]
+    );
+
+    // 4) Respond JSON so frontend is happy
+    res.json({
+      success: true,
+      message: "Reply processed successfully.",
+    });
+  } catch (err) {
+    console.error("Error in /api/contact-messages/:id/reply:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send reply.",
+    });
   }
 });
 

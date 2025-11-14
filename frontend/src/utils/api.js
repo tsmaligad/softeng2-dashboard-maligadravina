@@ -61,9 +61,19 @@ clearHomepageHero: async () => {
       body: JSON.stringify({ email, password }),
     });
     const data = await handleJson(res, text);
+  
+    // save JWT
     saveToken(data.token);
+  
+    // 🔑 save which user is logged in (for cart key)
+    const normalizedEmail = (data.email || email || '').toLowerCase();
+    if (normalizedEmail) {
+      localStorage.setItem('userEmail', normalizedEmail);
+    }
+  
     return { success: !!data.token || !!data.success, ...data };
   },
+  
 
   // ✅ REGISTER (needed by Createacc)
   // ✅ REGISTER (Createacc.jsx calls this)
@@ -110,9 +120,14 @@ register: async ({ firstName, lastName, email, password }) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
+  
+    // remove auth + user marker
     localStorage.removeItem('token');
+    localStorage.removeItem('userEmail'); // we won't delete the cart itself (so cart persists for that user)
+  
     return { success: true };
   },
+  
 
   /* ---------------- Users CRUD ---------------- */
   getUsers: async (q = "") => {
@@ -432,6 +447,23 @@ reorderAboutImages: async (ids) => {
   });
   return handleJson(res, text);
 },
+
+
+getContactMessages: async (params = {}) => {
+  const url = new URL("http://localhost:8080/api/contact-messages");
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== "" && value != null) {
+      url.searchParams.append(key, value);
+    }
+  });
+
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  return data; // MUST contain { items: [...] }
+},
+
+
 
   
 };

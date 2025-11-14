@@ -6,7 +6,12 @@ import Footer from "./Footer";
 import bin from "../assets/bin.png";
 
 const API = import.meta?.env?.VITE_API_BASE || "http://localhost:8080";
-const LS_KEY = "cart";
+
+function getCartKey() {
+  const email = localStorage.getItem("userEmail");
+  return email ? `cart_${email}` : "cart_guest";
+}
+
 
 function peso(n) {
   const v = Number(n || 0);
@@ -20,13 +25,16 @@ export default function Cart() {
   const [items, setItems] = useState([]); // [{ product_id, qty, unit_price, name?, image_url? }]
 
   useEffect(() => {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(getCartKey());
     let parsed = [];
     try {
       parsed = raw ? JSON.parse(raw) : [];
     } catch {
       parsed = [];
     }
+  
+    // hydrate() ...
+  
 
     // hydrate (name/image/price) if needed
     async function hydrate() {
@@ -35,7 +43,7 @@ export default function Cart() {
           const hasAll =
             it?.name && it?.image_url !== undefined && it?.unit_price !== undefined;
           if (hasAll) return it;
-
+    
           try {
             const r = await fetch(`${API}/api/products/${it.product_id}`);
             if (!r.ok) throw new Error("product not found");
@@ -51,10 +59,11 @@ export default function Cart() {
           }
         })
       );
-
+    
       setItems(filled);
-      localStorage.setItem(LS_KEY, JSON.stringify(filled));
+      localStorage.setItem(getCartKey(), JSON.stringify(filled)); // ✅ use per-user key
     }
+    
 
     hydrate();
   }, []);
@@ -62,8 +71,9 @@ export default function Cart() {
   // persist helper
   function save(next) {
     setItems(next);
-    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    localStorage.setItem(getCartKey(), JSON.stringify(next));
   }
+  
 
   function inc(product_id) {
     save(

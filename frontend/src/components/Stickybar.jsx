@@ -143,7 +143,7 @@ const Stickybar = () => {
 
             {isLoggedIn && menuOpen && (
               <div
-                className="absolute right-0 ml-[-50px] mt-[20px] w-[200px] bg-[#F5EFEF] border border-[#d4c9b9] rounded-lg shadow-md"
+                className="absolute right-0 ml-[-90px] mt-[20px] w-[200px] bg-[#F5EFEF] border border-[#d4c9b9] rounded-lg shadow-md"
                 style={{ top: "100%" }}
               >
                 {role === "admin" ? (
@@ -151,14 +151,14 @@ const Stickybar = () => {
                     <Link
                       to="/admin-dashboard"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-[8px] ml-[20px] block px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] no-underline"
+                      className="mt-[8px]  block px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] no-underline"
                     >
                       View Dashboard
                     </Link>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="mt-[8px] mb-[8px] ml-[15px] block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] bg-transparent border-0 appearance-none focus:outline-none"
+                      className="mt-[8px] mb-[8px] block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] bg-transparent border-0 appearance-none focus:outline-none"
                     >
                       Logout
                     </button>
@@ -168,14 +168,14 @@ const Stickybar = () => {
                     {/* Customer: show View Account (no nav yet if you haven't built /account) */}
                     <Link
   to="/my-account"
-  className="mt-[8px] ml-[20px] block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] no-underline"
+  className="mt-[8px]  block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] no-underline"
 >
   View Account
 </Link>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="mt-[8px] mb-[8px] ml-[15px] block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] bg-transparent border-0 appearance-none focus:outline-none"
+                      className="mt-[8px] mb-[8px]  block w-full text-left px-4 py-2 text-sm text-[#332601] hover:bg-[#e6ddd2] bg-transparent border-0 appearance-none focus:outline-none"
                     >
                       Logout
                     </button>

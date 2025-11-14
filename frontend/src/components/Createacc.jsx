@@ -50,7 +50,7 @@ export default function Createacc() {
                   value={form.firstName}
                   onChange={onChange}
                   required
-                  className="w-[540px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
+                  className="w-[560px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
                 <input
                   name="lastName"
@@ -59,7 +59,7 @@ export default function Createacc() {
                   value={form.lastName}
                   onChange={onChange}
                   required
-                  className="w-[540px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
+                  className="w-[560px] mt-[6px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
                 <input
                   name="email"
@@ -69,7 +69,7 @@ export default function Createacc() {
                   onChange={onChange}
                   required
                   autoComplete="email"
-                  className="w-[540px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
+                  className="w-[560px] mt-[6px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
                 <input
                   name="password"
@@ -79,7 +79,7 @@ export default function Createacc() {
                   onChange={onChange}
                   required
                   autoComplete="new-password"
-                  className="w-[540px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
+                  className="w-[560px] mt-[6px] h-[35px] rounded-full border border-[#5B4220] bg-white pl-[20px] text-base text-[#332601] placeholder-[#8b7760] outline-none"
                 />
               </div>
 

@@ -7,44 +7,68 @@ import call from "../assets/contactpage/telephone.png";
 import { FaChevronDown } from "react-icons/fa";
 import ReCAPTCHA from "react-google-recaptcha";
 
+const API = "http://localhost:8080"; // ⭐ REQUIRED FOR SENDING
+
 const Contactpage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const captchaRef = useRef(null);
   const RECAPTCHA_SITE_KEY = "6LdregwsAAAAABNDc6_Mz2878c4EsL2AY1Hnx4ox";
 
+  // ⭐ ADDING STATE FOR FIELDS — DOES NOT CHANGE CSS
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [inquiryType, setInquiryType] = useState("");
+  const [message, setMessage] = useState("");
+  const [agreed, setAgreed] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!captchaToken) {
-      alert("Please complete the CAPTCHA first.");
-      return;
-    }
+    // REQUIRED FIELDS
+if (!emailAddress.trim()) return alert("Email is required.");
+if (!inquiryType.trim()) return alert("Please select your inquiry type.");
+if (!message.trim()) return alert("Message is required.");
+if (!agreed) return alert("You must agree to the Privacy Notice first.");
+
+if (!captchaToken) {
+  alert("Please complete the CAPTCHA first.");
+  return;
+}
+
 
     try {
       setSubmitting(true);
 
-      // 🔐 OPTIONAL: if backend /verify-captcha is set up:
-      /*
-      const res = await fetch("http://localhost:8080/verify-captcha", {
+      // ⭐ SEND TO BACKEND SO ADMIN CAN SEE IT
+      await fetch(`${API}/api/contact-messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: captchaToken }),
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          email: emailAddress,
+          contact_number: contactNumber,
+          inquiry_type: inquiryType,
+          message: message,
+        }),
       });
-      const data = await res.json();
-      if (!data.success) {
-        alert("Captcha failed. Please try again.");
-        return;
-      }
-      */
 
-      // For now, just pretend it worked:
-      alert("Form submitted! (CAPTCHA token is valid on client side)");
+      alert("Form submitted! (Saved to backend)");
 
-      // reset captcha + form stuff if you want
+      // reset captcha + inputs
       captchaRef.current?.reset();
       setCaptchaToken(null);
+
+      setFirstName("");
+      setLastName("");
+      setEmailAddress("");
+      setContactNumber("");
+      setInquiryType("");
+      setMessage("");
     } catch (err) {
       console.error(err);
       alert("Something went wrong submitting the form.");
@@ -53,8 +77,6 @@ const Contactpage = () => {
     }
   };
 
-
-  
   return (
     <>
       <Stickybar />
@@ -72,7 +94,7 @@ const Contactpage = () => {
 
           {/* SIDE BY SIDE */}
           <div className="flex flex-row gap-10 items-start justify-between">
-            {/* LEFT SIDE (unchanged sizes) */}
+            {/* LEFT SIDE */}
             <div className="flex-1 max-w-[520px] text-[#332601]">
               <p className="text-base leading-relaxed mb-6 max-w-[480px]">
                 Have a question or need help? Fill out our quick and easy inquiry
@@ -111,10 +133,8 @@ const Contactpage = () => {
                 </div>
               </div>
 
-              {/* divider matches map width */}
               <div className="w-[490px] h-[2px] bg-[#8b7760] mt-[10px] mb-8" />
 
-              {/* MAP BOX (unchanged size) */}
               <div className="mb-[130px] mt-[50px] w-[490px] h-[280px] bg-white rounded-[20px] overflow-hidden shadow-md">
                 <iframe
                   title="Sweet Treats Davao Map"
@@ -127,9 +147,8 @@ const Contactpage = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE (match mock: 2-in-a-row where needed) */}
+            {/* RIGHT SIDE */}
             <div className="flex-1 flex justify-end mt-16 md:mt-24">
-              {/* ⭐ REAL FORM STARTS HERE */}
               <form
                 onSubmit={handleSubmit}
                 className="bg-[#F9F6F6] rounded-[12px] shadow-md w-full max-w-[520px] border border-[#F2E3D8] px-7 md:px-8 py-9 md:py-10"
@@ -146,6 +165,8 @@ const Contactpage = () => {
                         type="text"
                         placeholder="Enter your first name"
                         className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)} // ⭐ ONLY ADDITION
                       />
                     </div>
 
@@ -157,6 +178,8 @@ const Contactpage = () => {
                         type="text"
                         placeholder="Enter your last name"
                         className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)} // ⭐
                       />
                     </div>
                   </div>
@@ -171,6 +194,8 @@ const Contactpage = () => {
                         type="email"
                         placeholder="Enter your mail address"
                         className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
+                        value={emailAddress}
+                        onChange={(e) => setEmailAddress(e.target.value)} // ⭐
                       />
                     </div>
 
@@ -182,6 +207,8 @@ const Contactpage = () => {
                         type="text"
                         placeholder="+63"
                         className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
+                        value={contactNumber}
+                        onChange={(e) => setContactNumber(e.target.value)} // ⭐
                       />
                     </div>
                   </div>
@@ -195,6 +222,8 @@ const Contactpage = () => {
                       <select
                         defaultValue=""
                         className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 pr-8 text-sm appearance-none"
+                        value={inquiryType}
+                        onChange={(e) => setInquiryType(e.target.value)} // ⭐
                       >
                         <option value="" disabled>
                           Select type of inquiry
@@ -217,31 +246,33 @@ const Contactpage = () => {
                       rows="4"
                       placeholder="Type your message here..."
                       className="w-full bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 py-3 text-sm resize-none"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)} // ⭐
                     ></textarea>
                   </div>
 
                   {/* CAPTCHA */}
-                  {/* CAPTCHA (left-aligned) */}
-{/* CAPTCHA (left-aligned) */}
-<div className="flex justify-start">
-  <ReCAPTCHA
-    ref={captchaRef}
-    sitekey={RECAPTCHA_SITE_KEY}
-    onChange={(token) => {
-      console.log("captcha value:", token);
-      setCaptchaToken(token);        // ⭐ VERY IMPORTANT
-    }}
-    onExpired={() => {
-      setCaptchaToken(null);         // optional, but nice
-    }}
-  />
-</div>
-
-
+                  <div className="flex justify-start">
+                    <ReCAPTCHA
+                      ref={captchaRef}
+                      sitekey={RECAPTCHA_SITE_KEY}
+                      onChange={(token) => {
+                        console.log("captcha:", token);
+                        setCaptchaToken(token);
+                      }}
+                      onExpired={() => setCaptchaToken(null)}
+                    />
+                  </div>
 
                   {/* AGREEMENT */}
                   <label className="text-[12px] text-[#6B5B45] flex gap-2">
-                    <input type="checkbox" className="accent-[#644A07]" />
+                  <input
+  type="checkbox"
+  className="accent-[#644A07]"
+  checked={agreed}
+  onChange={(e) => setAgreed(e.target.checked)}
+/>
+
                     <span>
                       By clicking submit, you agree to our Privacy Notice and
                       Terms and Conditions.
@@ -250,15 +281,21 @@ const Contactpage = () => {
 
                   {/* SUBMIT BUTTON */}
                   <button
-                    type="submit"
-                    disabled={submitting || !captchaToken}
-                    className="w-full h-11 rounded-full bg-[#644A07] text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? "Sending..." : "Submit"}
-                  </button>
+  type="submit"
+  disabled={
+    submitting ||
+    !captchaToken ||
+    !emailAddress.trim() ||
+    !inquiryType.trim() ||
+    !agreed
+  }
+  className="w-full h-11 rounded-full bg-[#644A07] text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+>
+  {submitting ? "Sending..." : "Submit"}
+</button>
+
                 </div>
               </form>
-
             </div>
           </div>
         </div>

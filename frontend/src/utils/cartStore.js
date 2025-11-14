@@ -1,5 +1,10 @@
 // src/utils/cartStore.js
 const API = import.meta?.env?.VITE_API_BASE || "http://localhost:8080";
+function getCartKey() {
+  const email = localStorage.getItem("userEmail");
+  return email ? `cart_${email}` : "cart_guest";
+}
+
 
 function getToken() {
   return localStorage.getItem("token");
@@ -7,15 +12,16 @@ function getToken() {
 
 function readLocal() {
   try {
-    return JSON.parse(localStorage.getItem("cart") || "[]");
+    return JSON.parse(localStorage.getItem(getCartKey()) || "[]");
   } catch {
     return [];
   }
 }
 
 function writeLocal(items) {
-  localStorage.setItem("cart", JSON.stringify(items));
+  localStorage.setItem(getCartKey(), JSON.stringify(items));
 }
+
 
 export const cartStore = {
   // for guests: store locally; for logged-in: also mirror to server

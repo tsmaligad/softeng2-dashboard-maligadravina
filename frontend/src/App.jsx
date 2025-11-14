@@ -22,6 +22,9 @@ import Checkout from './components/Checkout.jsx';
 import ProductsManagement from './components/ProductsManagement.jsx';
 import JobOrder from './components/JobOrder.jsx'; 
 import EditPages from './components/EditPages.jsx';
+import AdminContact from './components/AdminContact.jsx';
+
+
 
 function App() {
   return (
@@ -74,7 +77,11 @@ function App() {
               <UserList />
             </AdminRoute>
           }/>
-
+<Route path="/admincontact" element={
+            <AdminRoute>
+              <AdminContact />
+            </AdminRoute>
+          }/>
 <Route
           path="/joborder"
           element={
@@ -82,7 +89,11 @@ function App() {
               <JobOrder />
             </AdminRoute>
           }
+
+          
         />
+
+        
       </Routes>
       </ScrollToTop>
     </Router>
