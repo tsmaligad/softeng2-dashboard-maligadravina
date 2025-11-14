@@ -257,7 +257,7 @@ div.flex-1.p-6 .search-btn:focus {
   <select
     value={form.is_active}
     onChange={(e) => setForm({ ...form, is_active: e.target.value })}
-    className="border px-3 py-2 min-w-[200px]"
+    className="border px-3 py-2 min-w-[200px] "
   >
     <option value={1}>Active</option>
     <option value={0}>Inactive</option>

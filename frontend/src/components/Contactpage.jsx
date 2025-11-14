@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import Stickybar from "./Stickybar";
 import Footer from "./Footer";
 import email from "../assets/contactpage/envelope.png";
@@ -8,6 +8,53 @@ import { FaChevronDown } from "react-icons/fa";
 import ReCAPTCHA from "react-google-recaptcha";
 
 const Contactpage = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
+  const RECAPTCHA_SITE_KEY = "6LdregwsAAAAABNDc6_Mz2878c4EsL2AY1Hnx4ox";
+
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!captchaToken) {
+      alert("Please complete the CAPTCHA first.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // 🔐 OPTIONAL: if backend /verify-captcha is set up:
+      /*
+      const res = await fetch("http://localhost:8080/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert("Captcha failed. Please try again.");
+        return;
+      }
+      */
+
+      // For now, just pretend it worked:
+      alert("Form submitted! (CAPTCHA token is valid on client side)");
+
+      // reset captcha + form stuff if you want
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong submitting the form.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
+  
   return (
     <>
       <Stickybar />
@@ -49,7 +96,7 @@ const Contactpage = () => {
                   <img
                     src={email}
                     alt="Email Icon"
-                    className="w-[20px] h-[20px] mt-[18px] mr-[10px]"
+                    className="w-[20px] h-[20px] mt-[1px] mr-[10px]"
                   />
                   <p>carlaroseagangamido@gmail.com</p>
                 </div>
@@ -58,14 +105,14 @@ const Contactpage = () => {
                   <img
                     src={call}
                     alt="Phone Icon"
-                    className="w-[20px] h-[20px] mt-[16px] mr-[10px]"
+                    className="w-[20px] h-[20px] mt-[1px] mr-[10px]"
                   />
                   <p>Mobile: +63 926 112 9632</p>
                 </div>
               </div>
 
               {/* divider matches map width */}
-              <div className="w-[490px] h-[2px] bg-[#8b7760] mb-8" />
+              <div className="w-[490px] h-[2px] bg-[#8b7760] mt-[10px] mb-8" />
 
               {/* MAP BOX (unchanged size) */}
               <div className="mb-[130px] mt-[50px] w-[490px] h-[280px] bg-white rounded-[20px] overflow-hidden shadow-md">
@@ -82,107 +129,137 @@ const Contactpage = () => {
 
             {/* RIGHT SIDE (match mock: 2-in-a-row where needed) */}
             <div className="flex-1 flex justify-end mt-16 md:mt-24">
-              {/* form card */}
-              <div className="bg-[#F9F6F6] rounded-[12px] shadow-md w-full max-w-[520px] border border-[#F2E3D8] px-7 md:px-8 py-9 md:py-10">
-                {/* stack */}
+              {/* ⭐ REAL FORM STARTS HERE */}
+              <form
+                onSubmit={handleSubmit}
+                className="bg-[#F9F6F6] rounded-[12px] shadow-md w-full max-w-[520px] border border-[#F2E3D8] px-7 md:px-8 py-9 md:py-10"
+              >
                 <div className="flex flex-col gap-6 max-w-[500px] mx-auto">
 
-                  {/* NAME ROW (always 2 in one line) */}
+                  {/* NAME ROW */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[13px] text-[#6B5B45] mb-1.5">First Name</label>
+                      <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                        First Name
+                      </label>
                       <input
                         type="text"
                         placeholder="Enter your first name"
-                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm text-[#332601] placeholder:text-[#9C8D79] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] transition"
+                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-[13px] text-[#6B5B45] mb-1.5">Last Name</label>
+                      <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                        Last Name
+                      </label>
                       <input
                         type="text"
                         placeholder="Enter your last name"
-                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm text-[#332601] placeholder:text-[#9C8D79] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] transition"
+                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
                       />
                     </div>
                   </div>
 
-                  {/* CONTACT INFO (always 2 in one line) */}
+                  {/* CONTACT ROW */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[13px] text-[#6B5B45] mb-1.5">Email Address</label>
+                      <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                        Email Address
+                      </label>
                       <input
                         type="email"
                         placeholder="Enter your mail address"
-                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm text-[#332601] placeholder:text-[#9C8D79] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] transition"
+                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-[13px] text-[#6B5B45] mb-1.5">Contact Number</label>
+                      <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                        Contact Number
+                      </label>
                       <input
                         type="text"
                         placeholder="+63"
-                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm text-[#332601] placeholder:text-[#9C8D79] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] transition"
+                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 text-sm"
                       />
                     </div>
                   </div>
 
-                  {/* INQUIRY TYPE (single full row) */}
+                  {/* INQUIRY TYPE */}
                   <div>
-                    <label className="block text-[13px] text-[#6B5B45] mb-1.5">Inquiry Type</label>
+                    <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                      Inquiry Type
+                    </label>
                     <div className="relative">
                       <select
                         defaultValue=""
-                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 pr-8 text-sm text-[#332601] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] appearance-none"
+                        className="w-full h-10 bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 pr-8 text-sm appearance-none"
                       >
-                        <option value="" disabled>Select type of inquiry</option>
+                        <option value="" disabled>
+                          Select type of inquiry
+                        </option>
                         <option>Order Concern</option>
                         <option>Product Inquiry</option>
                         <option>Partnership</option>
                         <option>Others</option>
                       </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6A56] w-3 h-3 pointer-events-none" />
+                      <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6A56] w-3 h-3" />
                     </div>
                   </div>
 
-                  {/* MESSAGE (single full row) */}
+                  {/* MESSAGE */}
                   <div>
-                    <label className="block text-[13px] text-[#6B5B45] mb-1.5">Message</label>
+                    <label className="text-[13px] text-[#6B5B45] mb-1.5 block">
+                      Message
+                    </label>
                     <textarea
-                      rows={4}
+                      rows="4"
                       placeholder="Type your message here..."
-                      className="w-full bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 py-3 text-sm text-[#332601] placeholder:text-[#9C8D79] focus:outline-none focus:ring-2 focus:ring-[#8b7760]/30 focus:border-[#BFAF9E] resize-none transition"
-                    />
+                      className="w-full bg-[#FDFBF9] border border-[#D7C9B9] rounded-[10px] px-3 py-3 text-sm resize-none"
+                    ></textarea>
                   </div>
 
+                  {/* CAPTCHA */}
                   {/* CAPTCHA (left-aligned) */}
-                  <div className="flex justify-start">
-                    <ReCAPTCHA
-                      sitekey="YOUR_SITE_KEY_HERE"
-                      onChange={(token) => console.log("captcha value:", token)}
-                    />
-                  </div>
+{/* CAPTCHA (left-aligned) */}
+<div className="flex justify-start">
+  <ReCAPTCHA
+    ref={captchaRef}
+    sitekey={RECAPTCHA_SITE_KEY}
+    onChange={(token) => {
+      console.log("captcha value:", token);
+      setCaptchaToken(token);        // ⭐ VERY IMPORTANT
+    }}
+    onExpired={() => {
+      setCaptchaToken(null);         // optional, but nice
+    }}
+  />
+</div>
+
+
 
                   {/* AGREEMENT */}
-                  <label className="text-[12px] text-[#6B5B45] -mt-1 flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" className="mt-0.5 accent-[#644A07]" />
+                  <label className="text-[12px] text-[#6B5B45] flex gap-2">
+                    <input type="checkbox" className="accent-[#644A07]" />
                     <span>
-                      By clicking submit, you agree to our Privacy Notice and Terms and Conditions.
+                      By clicking submit, you agree to our Privacy Notice and
+                      Terms and Conditions.
                     </span>
                   </label>
 
-                  {/* BUTTON (pill) */}
+                  {/* SUBMIT BUTTON */}
                   <button
-                    className="relative w-full h-11 rounded-full text-sm font-medium text-white bg-[#644A07] hover:opacity-90 transition shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_16px_rgba(0,0,0,0.08)]"
-                    style={{ color: "white" }}
+                    type="submit"
+                    disabled={submitting || !captchaToken}
+                    className="w-full h-11 rounded-full bg-[#644A07] text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-[6px] w-[80%] h-[8px] rounded-full bg-white/20" />
-                    Submit
+                    {submitting ? "Sending..." : "Submit"}
                   </button>
                 </div>
-              </div>
+              </form>
+
             </div>
-            {/* /RIGHT */}
           </div>
         </div>
       </main>
