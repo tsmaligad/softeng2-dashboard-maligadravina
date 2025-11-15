@@ -890,20 +890,69 @@ app.post('/api/contact-messages', async (req, res) => {
 });
 
 // GET /api/contact-messages
-app.get('/api/contact-messages', async (_req, res) => {
+// GET /api/contact-messages?page=1&pageSize=20&q=...
+app.get('/api/contact-messages', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, email, contact_number,
-              inquiry_type, message, status, created_at
-       FROM contact_messages
-       ORDER BY created_at DESC`
+    const { q = '' } = req.query;
+
+    // page + pageSize with defaults & safety
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(
+      Math.max(parseInt(req.query.pageSize, 10) || 20, 1),
+      100
     );
-    res.json({ items: rows });
+    const offset = (page - 1) * pageSize;
+
+    // optional search
+    const filters = [];
+    const params = [];
+
+    if (q) {
+      const like = `%${q}%`;
+      filters.push(
+        `(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR message LIKE ? OR contact_number LIKE ?)`
+      );
+      params.push(like, like, like, like, like);
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    // 1) paginated rows
+    const [rows] = await pool.query(
+      `
+      SELECT id, first_name, last_name, email, contact_number,
+             inquiry_type, message, status, created_at
+      FROM contact_messages
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...params, pageSize, offset]
+    );
+
+    // 2) total count (for totalPages)
+    const [[{ total }]] = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM contact_messages
+      ${where}
+      `,
+      params
+    );
+
+    res.json({
+      items: rows,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(Math.ceil(total / pageSize), 1),
+    });
   } catch (err) {
     console.error("GET /api/contact-messages error:", err);
     res.status(500).json({ error: "Failed to load messages" });
   }
 });
+
 
 
 
@@ -1867,6 +1916,31 @@ app.post("/api/contact-messages/:id/reply", async (req, res) => {
     });
   }
 });
+
+// PATCH /api/contact-messages/:id/status → update message status (new, replied, archived)
+app.patch("/api/contact-messages/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: "Status is required" });
+    }
+
+    await pool.query(
+      "UPDATE contact_messages SET status = ? WHERE id = ?",
+      [status, id]
+    );
+
+    res.json({ success: true, message: "Status updated" });
+  } catch (err) {
+    console.error("PATCH /api/contact-messages/:id/status error:", err);
+    res.status(500).json({ success: false, message: "Failed to update status" });
+  }
+});
+
+
+
 
 
 /* ---------------- Start server ---------------- */

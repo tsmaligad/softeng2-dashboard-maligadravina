@@ -22,7 +22,8 @@ const EditPages = () => {
   const handleChange = (_event, newValue) => setValue(newValue);
 
   return (
-    <div className="flex gap-10 min-h-screen bg-[#FAF9F7] text-[#332601]">
+    <div className="flex gap-10 min-h-screen bg-[#F5EFEF] text-[#332601]">
+
 
       <Sidebar />
 
@@ -39,21 +40,55 @@ const EditPages = () => {
           <div className="mt-8 p-4 bg-transparent border-none shadow-none">
 
 
-            <Box sx={{ width: "100%", bgcolor: "background.paper" }}>
-              <Tabs
-                value={value}
-                onChange={handleChange}
-                variant="scrollable"
-                scrollButtons
-                allowScrollButtonsMobile
-                aria-label="page edit tabs"
-              >
-                <Tab label="Homepage" />
-                <Tab label="Contact" />
-                <Tab label="About Us" />
-                <Tab label="FAQ" />
-              </Tabs>
-            </Box>
+          <Box
+  sx={{
+    width: "100%",
+    bgcolor: "#FFFFFF",          // soft pink (like your table header)
+    borderRadius: 2,
+    px: 1,
+    border: "1px solid #EADBD8",
+  }}
+>
+  <Tabs
+    value={value}
+    onChange={handleChange}
+    variant="scrollable"
+    scrollButtons
+    allowScrollButtonsMobile
+    aria-label="page edit tabs"
+    TabIndicatorProps={{
+      style: {
+        backgroundColor: "#4A3600", // brown underline
+        height: 3,
+        borderRadius: 9999,
+      },
+    }}
+    sx={{
+      "& .MuiTab-root": {
+        textTransform: "none",
+        fontSize: 14,
+        paddingInline: "24px",  // ⬅️ wider
+        paddingBlock: "10px",   // ⬅️ taller
+        minHeight: 48,          // ⬅️ tab height
+        color: "#6B5B45",          // default text (muted brown)
+        fontWeight: 500,
+      },
+      "& .MuiTab-root.Mui-selected": {
+        color: "#4A3600",          // selected = deeper brown
+        fontWeight: 600,
+      },
+      "& .MuiTabs-scrollButtons": {
+        color: "#4A3600",          // arrow buttons in brown
+      },
+    }}
+  >
+    <Tab label="Homepage" />
+    <Tab label="Contact" />
+    <Tab label="About Us" />
+    <Tab label="FAQ" />
+  </Tabs>
+</Box>
+
 
             {/* Panels */}
 <div className="mt-6">
@@ -231,6 +266,8 @@ function moveHero(oldIndex, delta) {
       <p className="text-sm text-gray-600 ml-[10px] mb-6">
         Edit the hero image, featured products, and FAQs shown on the homepage.
       </p>
+      <div className="w-full h-[2px] bg-[#4A3600] my-4"></div>
+
 
       {/* ---------------- HERO ---------------- */}
       {/* ---------------- HERO ---------------- */}
@@ -540,6 +577,8 @@ const arr = Array.isArray(data?.items) ? data.items : [];
       <p className="text-sm text-gray-600 ml-[10px] mb-6">
         Add, edit, delete FAQs for your public FAQ page.
       </p>
+      <div className="w-full h-[2px] bg-[#4A3600] my-4"></div>
+
 
       {/* Form */}
       <form onSubmit={onSubmit} className="ml-[10px] mb-8 grid grid-cols-1 gap-3 bg-white p-4 rounded-2xl shadow-md border border-gray-200">
@@ -834,6 +873,9 @@ const TILE_HEIGHT = 190;
       <p className="text-sm text-gray-600 ml-[10px] mb-6">
         Public preview at the top. Edit content and tiles below.
       </p>
+      <div className="w-full h-[2px] bg-[#4A3600] my-4"></div>
+
+
 
       {/* ---- PUBLIC PREVIEW (TOP) ---- */}
       <div className="ml-[10px] mb-10 rounded-2xl border border-[#decdb9] bg-[#FBF3F3]/40 p-5">
@@ -1092,6 +1134,8 @@ function useAddressForMap() {
       <p className="text-sm text-gray-600 ml-[10px] mb-6">
         Preview of the public left column with a toggle to edit.
       </p>
+      <div className="w-full h-[2px] bg-[#4A3600] my-4"></div>
+
 
       {/* PREVIEW CARD (matches public left-side sizes) */}
       {!isEditing && (

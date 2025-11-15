@@ -400,6 +400,17 @@ uploadAboutImage: async (file) => {
   return handleJson(res, text); // { success, url }
 },
 
+updateContactMessageStatus: async (id, body) => {
+  const { res, text } = await debugFetch(`${BASE_URL}/api/contact-messages/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleJson(res, text);
+},
+
+
+
 createAboutImage: async ({ url, title, position, enabled = 1 }) => {
   const token = getToken();
   const { res, text } = await debugFetch(`${BASE_URL}/api/about-images-admin`, {

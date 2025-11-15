@@ -1,0 +1,135 @@
+/* Modal.css */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+  }
+  
+  .modal-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    width: 300px;
+    text-align: center;
+  }
+  
+  .modal-button {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #4a3600;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .modal-button:hover {
+    background-color: #6b5011;
+  }
+  
+
+
+  /* ========================= */
+/* ADMIN CONTACT MODAL STYLES */
+/* ========================= */
+
+.admin-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.45); 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 60;
+  }
+  
+  .admin-modal-content {
+    background: #FFFAF8;
+    border: 1px solid #EADBD8;
+    border-radius: 16px;
+    padding: 24px;
+    width: 95%;
+    max-width: 600px;    /* wider modal */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    position: relative;
+  }
+  
+  .admin-modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #332601;
+    margin-bottom: 5px;
+  }
+  
+  .admin-modal-sub {
+    font-size: 12px;
+    color: #6B5B45;
+    margin-bottom: 15px;
+  }
+  
+  .admin-meta-box {
+    background: white;
+    border: 1px solid #E9DDD1;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 15px;
+  }
+  
+  .admin-modal-body {
+    background: #FBF3F3;
+    border: 1px solid #E9DDD1;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 13px;
+    color: #332601;
+    max-height: 170px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+  }
+  
+  .admin-modal-button {
+    background-color: #4A3600;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .admin-modal-button:hover {
+    background-color: #3A2A00;
+  }
+  
+  .admin-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: 14px;
+    color: #6B5B45;
+    cursor: pointer;
+  }
+  
+  .admin-close-btn:hover {
+    color: #332601;
+  }
+
+  .admin-contact-modal {
+    width: 600px;          /* 🔥 make wider */
+    max-width: 95%;         /* responsive */
+    text-align: left;
+    border-radius: 16px;    /* adjust shape */
+    padding: 24px;          /* cleaner spacing */
+  }
+  
