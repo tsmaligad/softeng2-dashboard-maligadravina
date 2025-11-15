@@ -19,6 +19,7 @@ const Contactpage = () => {
   const captchaRef = useRef(null);
   const RECAPTCHA_SITE_KEY = "6LdregwsAAAAABNDc6_Mz2878c4EsL2AY1Hnx4ox";
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectOpen, setSelectOpen] = useState(false);
 
 
   // ✅ form state (same as your functional version)
@@ -252,21 +253,36 @@ const Contactpage = () => {
                       Inquiry Type
                     </label>
                     <div className="relative">
-                      <select
-                        defaultValue=""
-                        className="w-full h-11 bg-white border-2 border-[#4A3600] rounded-[8px] px-4 pr-10 text-sm text-[#332601] appearance-none"
-                        value={inquiryType}
-                        onChange={(e) => setInquiryType(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Select type of inquiry
-                        </option>
-                        <option>Order Concern</option>
-                        <option>Product Inquiry</option>
-                        <option>Partnership</option>
-                        <option>Others</option>
-                      </select>
-                      <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7A6A56] w-3 h-3 pointer-events-none" />
+                    <select
+  defaultValue=""
+  className="w-full h-11 bg-white border-2 border-[#4A3600] rounded-[8px] px-4 pr-10 text-sm appearance-none"
+  value={inquiryType}
+  onClick={() => setSelectOpen((prev) => !prev)}   // toggle arrow when you click
+  onBlur={() => setSelectOpen(false)}              // arrow goes back when you leave
+  onChange={(e) => {
+    setInquiryType(e.target.value);                // set value
+    setSelectOpen(false);                          // arrow down after choosing
+  }}
+>
+
+  <option value="" disabled>
+    Select type of inquiry
+  </option>
+  <option className="text-[#332601]">Order Concern</option>
+  <option className="text-[#332601]">Product Inquiry</option>
+  <option className="text-[#332601]">Partnership</option>
+  <option className="text-[#332601]">Others</option>
+</select>
+
+
+                      <FaChevronDown
+  className={`absolute right-[12px] top-1/2 -translate-y-1/2 text-[#7A6A56] w-3 h-3 pointer-events-none transition-transform duration-200 ${
+    selectOpen ? "rotate-180" : "rotate-0"
+
+
+  }`}
+/>
+
                     </div>
                   </div>
 
