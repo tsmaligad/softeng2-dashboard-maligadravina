@@ -10,6 +10,9 @@ import home from "../assets/home.png";
 import inventorylogo from "../assets/inventory.png";
 import cake from "../assets/birthday-cake.png";
 import order from "../assets/order.png";
+import mail from "../assets/mail.png";
+import rm from "../assets/raw-materials.png";
+import editp from "../assets/editpages.png";
 
 // ✅ use api.js instead of authService
 import { api } from "../utils/api";
@@ -99,10 +102,11 @@ useEffect(() => {
 
   return (
     <aside
-    className={` shrink-0 sidebar overflow-visible min-h-screen bg-[#4A3600] text-white flex flex-col items-center py-6 transition-all duration-200 ${
-      collapsed ? "w-[64px] px-2" : "w-[240px] px-8"
-    }`}
-  >
+  className={`sidebar sticky top-0 self-start shrink-0 overflow-visible min-h-screen bg-[#4A3600] text-white flex flex-col items-center py-6 transition-all duration-200 ${
+    collapsed ? "w-[64px] px-2" : "w-[240px] px-8"
+  }`}
+>
+
   
 
       {/* Scoped rules: remove forced colors so you control them manually */}
@@ -187,7 +191,7 @@ useEffect(() => {
       </div>
 
       {/* Nav */}
-      <nav className={`w-full ${collapsed ? "mt-[30px]" : "mt-[20px]"}`}>
+      <nav className={`w-full ${collapsed ? "mt-[100px]" : "mt-[50px]"}`}>
         <ul className="list-none space-y-[10px]">
           {/* BALIK TO HOMEPAGE */}
           <li className={`flex ${collapsed ? "justify-center" : "justify-start"}`}>
@@ -262,7 +266,7 @@ useEffect(() => {
           <NavLink to="/editpages" title={collapsed ? "Edit Pages" : ""} className={({ isActive }) => getItemClass(isActive)}>
 
           <img
-  src={groupicon}
+  src={editp}
   alt="Edit Pages"
   className={`w-[16px] h-[16px] ${
     location.pathname === "/editpages"
@@ -352,7 +356,7 @@ useEffect(() => {
           <NavLink to="/rawmaterials" title={collapsed ? "Raw Materials" : ""} className={({ isActive }) => getItemClass(isActive)}>
 
           <img
-  src={inventorylogo}
+  src={rm}
   alt="Raw Materials"
   className={`w-[16px] h-[16px] ${
     location.pathname === "/rawmaterials"
@@ -442,7 +446,7 @@ useEffect(() => {
           <NavLink to="/admincontact" title={collapsed ? "Contact Forms" : ""} className={({ isActive }) => getItemClass(isActive)}>
 
           <img
-  src={order}
+  src={mail}
   alt="Contact Forms"
   className={`w-[16px] h-[16px] ${
     location.pathname === "/admincontact"

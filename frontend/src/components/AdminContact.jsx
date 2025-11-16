@@ -382,6 +382,8 @@ const moveActiveToTrash = () => {
           <h1 className="text-3xl font-bold mb-3 text-[#332601]">
             Contact Messages
           </h1>
+
+          <hr className="border-t border-[#8b7760]" />
           <p className="text-sm text-[#6B5B45] mb-4">
             View inquiries sent from the contact form, filter by category, and
             reply via email.

@@ -841,7 +841,7 @@ app.patch('/api/about-images-admin/reorder', requireAuth, requireAdmin, async (r
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids[] required' });
     const conn = await pool.getConnection();
     try {
-      await cAonn.beginTransaction();
+      await conn.beginTransaction();
       for (let i = 0; i < ids.length; i++) {
         await conn.query('UPDATE about_images SET sort_order=? WHERE id=?', [i, ids[i]]);
       }
@@ -859,114 +859,28 @@ app.patch('/api/about-images-admin/reorder', requireAuth, requireAdmin, async (r
   }
 });
 
-// POST /api/contact-messages
-app.post('/api/contact-messages', async (req, res) => {
-  try {
-    const {
-      first_name,
-      last_name,
-      email,
-      contact_number,
-      inquiry_type,
-      message
-    } = req.body || {};
-
-    if (!first_name || !email || !message) {
-      return res.status(400).json({ error: "Required fields missing" });
-    }
-
-    await pool.query(
-      `INSERT INTO contact_messages 
-       (first_name, last_name, email, contact_number, inquiry_type, message)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [first_name, last_name, email, contact_number, inquiry_type, message]
-    );
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("POST /api/contact-messages error:", err);
-    res.status(500).json({ error: "Failed to save message" });
-  }
-});
-
-// GET /api/contact-messages
-// GET /api/contact-messages?page=1&pageSize=20&q=...
-app.get('/api/contact-messages', async (req, res) => {
-  try {
-    const { q = '' } = req.query;
-
-    // page + pageSize with defaults & safety
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const pageSize = Math.min(
-      Math.max(parseInt(req.query.pageSize, 10) || 20, 1),
-      100
-    );
-    const offset = (page - 1) * pageSize;
-
-    // optional search
-    const filters = [];
-    const params = [];
-
-    if (q) {
-      const like = `%${q}%`;
-      filters.push(
-        `(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR message LIKE ? OR contact_number LIKE ?)`
-      );
-      params.push(like, like, like, like, like);
-    }
-
-    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-
-    // 1) paginated rows
-    const [rows] = await pool.query(
-      `
-      SELECT id, first_name, last_name, email, contact_number,
-             inquiry_type, message, status, created_at
-      FROM contact_messages
-      ${where}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-      `,
-      [...params, pageSize, offset]
-    );
-
-    // 2) total count (for totalPages)
-    const [[{ total }]] = await pool.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM contact_messages
-      ${where}
-      `,
-      params
-    );
-
-    res.json({
-      items: rows,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.max(Math.ceil(total / pageSize), 1),
-    });
-  } catch (err) {
-    console.error("GET /api/contact-messages error:", err);
-    res.status(500).json({ error: "Failed to load messages" });
-  }
-});
-
-
-
-
-
-
 
 
 
 /* ---------------- RAW MATERIALS ---------------- */
 
+// Helper to format date as "Month Day Year"
+const formatHumanDate = (date) => {
+  if (!date) return null;
+  const d = new Date(date);
+  const options = { year: "numeric", month: "long", day: "numeric" };
+  return d.toLocaleDateString("en-US", options); // e.g., "September 20 2025"
+};
+
+// GET all raw materials
 app.get("/api/raw-materials", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM raw_materials ORDER BY id ASC");
-    res.json(rows);
+    const formatted = rows.map(row => ({
+      ...row,
+      expiration_date: formatHumanDate(row.expiration_date)
+    }));
+    res.json(formatted);
   } catch (e) {
     console.error("GET /api/raw-materials error:", e);
     res.status(500).json({ error: e.message });
@@ -976,29 +890,67 @@ app.get("/api/raw-materials", async (_req, res) => {
 // POST new raw material
 app.post("/api/raw-materials", async (req, res) => {
   try {
-    const { name, brand, description, units, price, status } = req.body || {};
+    const { name, brand, description, units, price, status, expiration_date } = req.body || {};
     if (!name || !brand || !units || price == null) {
       return res.status(400).json({ error: "name, brand, units, price are required" });
     }
+
     const [result] = await pool.execute(
-      `INSERT INTO raw_materials (name, brand, description, units, price, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, brand, description || "", units, Number(price), status || "Available"]
+      `INSERT INTO raw_materials (name, brand, description, units, price, status, expiration_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, brand, description || "", units, Number(price), status || "Available", expiration_date || null]
     );
-    const [rows] = await pool.query(
-      `SELECT id, name, brand, description, units, price, status, created_at
-         FROM raw_materials
-         WHERE id = ?`,
-      [result.insertId]
-    );
-    res.json(rows[0]);
+
+    const [rows] = await pool.query(`SELECT * FROM raw_materials WHERE id = ?`, [result.insertId]);
+    const saved = rows[0];
+    saved.expiration_date = formatHumanDate(saved.expiration_date);
+
+    res.json(saved);
   } catch (e) {
     console.error("POST /api/raw-materials error:", e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// GET /api/inventory  → joined with raw_materials
+// PUT update raw material
+app.put("/api/raw-materials/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, brand, description, units, price, status, expiration_date } = req.body;
+
+    await pool.query(
+      `UPDATE raw_materials
+       SET name = ?, brand = ?, description = ?, units = ?, price = ?, status = ?, expiration_date = ?
+       WHERE id = ?`,
+      [name, brand, description, units, Number(price), status, expiration_date || null, id]
+    );
+
+    const [rows] = await pool.query(`SELECT * FROM raw_materials WHERE id = ?`, [id]);
+    const updated = rows[0];
+    updated.expiration_date = formatHumanDate(updated.expiration_date);
+
+    res.json(updated);
+  } catch (e) {
+    console.error("PUT /api/raw-materials error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE raw material
+app.delete("/api/raw-materials/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM raw_materials WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("DELETE /api/raw-materials error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- INVENTORY ---------------- */
+
+// GET inventory (joined with raw_materials)
 app.get("/api/inventory", async (_req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -1011,124 +963,67 @@ app.get("/api/inventory", async (_req, res) => {
         r.brand,
         r.units,
         r.price,
-        r.status
+        r.status,
+        r.expiration_date
       FROM inventory i
       JOIN raw_materials r ON r.id = i.raw_material_id
       ORDER BY i.id ASC
     `);
-    res.json(rows);
+
+    const formatted = rows.map(row => ({
+      ...row,
+      expiration_date: formatHumanDate(row.expiration_date)
+    }));
+
+    res.json(formatted);
   } catch (e) {
     console.error("GET /api/inventory error:", e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// PUT /api/raw-materials/:id
-app.put("/api/raw-materials/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, brand, description, units, price, status } = req.body;
-
-    await pool.query(
-      `UPDATE raw_materials
-       SET name = ?, brand = ?, description = ?, units = ?, price = ?, status = ?
-       WHERE id = ?`,
-      [name, brand, description, units, price, status, id]
-    );
-
-    res.json({ id, name, brand, description, units, price, status });
-  } catch (e) {
-    console.error("PUT /api/raw-materials error:", e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// DELETE /api/raw-materials/:id
-app.delete("/api/raw-materials/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await pool.query("DELETE FROM raw_materials WHERE id = ?", [id]);
-    res.json({ success: true });
-  } catch (e) {
-    console.error("DELETE /api/raw-materials error:", e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-
-
-
-// POST /api/inventory
+// POST new inventory item
 app.post("/api/inventory", async (req, res) => {
   try {
     const { rawMaterialId, quantity } = req.body || {};
     if (!rawMaterialId || !quantity) {
       return res.status(400).json({ error: "rawMaterialId and quantity are required" });
     }
+
     const [result] = await pool.execute(
       `INSERT INTO inventory (raw_material_id, quantity) VALUES (?, ?)`,
       [rawMaterialId, quantity]
     );
-    const [rows] = await pool.query(
-      `SELECT
-         i.id,
-         i.raw_material_id AS rawMaterialId,
-         i.quantity,
-         i.created_at,
-         r.name, r.brand, r.units, r.price, r.status
-       FROM inventory i
-       JOIN raw_materials r ON i.raw_material_id = r.id
-       WHERE i.id = ?`,
-      [result.insertId]
-    );
-    return res.json(rows[0]);
+
+    const [rows] = await pool.query(`
+      SELECT
+        i.id,
+        i.raw_material_id AS rawMaterialId,
+        i.quantity,
+        i.created_at,
+        r.name,
+        r.brand,
+        r.units,
+        r.price,
+        r.status,
+        r.expiration_date
+      FROM inventory i
+      JOIN raw_materials r ON i.raw_material_id = r.id
+      WHERE i.id = ?
+    `, [result.insertId]);
+
+    const saved = rows[0];
+    saved.expiration_date = formatHumanDate(saved.expiration_date);
+
+    res.json(saved);
   } catch (e) {
     console.error("POST /api/inventory error:", e);
-    return res.status(500).json({ error: e.message });
-  }
-});
-
-
-
-/* ---------------- INVENTORY ---------------- */
-
-// Add inventory item
-app.post("/api/inventory", async (req, res) => {
-  try {
-    const { rawMaterialId, quantity } = req.body;
-
-    const [result] = await pool.execute(
-      `INSERT INTO inventory (raw_material_id, quantity)
-       VALUES (?, ?)`,
-      [rawMaterialId, quantity]
-    );
-
-    // Return the new row joined with raw_materials details
-    const [rows] = await pool.query(
-      `SELECT 
-         i.id,
-         i.raw_material_id AS rawMaterialId,
-         i.quantity,
-         i.created_at,
-         r.name,
-         r.brand,
-         r.units,
-         r.price,
-         r.status
-       FROM inventory i
-       JOIN raw_materials r ON i.raw_material_id = r.id
-       WHERE i.id = ?`,
-      [result.insertId]
-    );
-
-    res.json(rows[0]);
-  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 /* ------------ PRODUCTS: Public (read-only) ------------ */
-// GET /api/products
+
 app.get('/api/products', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -1167,6 +1062,7 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 
 // GET /api/products/:id
@@ -1858,84 +1754,254 @@ app.post('/homepage/heroes', requireAuth, requireAdmin, upload.array('files', 10
   }
 });
 
-// server.js (or routes/contactMessages.js, wherever your routes live)
-app.post("/api/contact-messages/:id/reply", async (req, res) => {
-  const { id } = req.params;
-  const { subject, body } = req.body;
+/* ---------------- CONTACT MESSAGES (Contact Us) ---------------- */
 
-  if (!subject || !body) {
-    return res.status(400).json({
-      success: false,
-      message: "Subject and body are required.",
-    });
-  }
-
-  try {
-    // 1) Look up the original message so we know where to reply
-    const [rows] = await db.query(
-      "SELECT email FROM contact_messages WHERE id = ?",
-      [id]
-    );
-
-    if (!rows.length || !rows[0].email) {
-      return res.status(404).json({
-        success: false,
-        message: "Original contact message or email not found.",
+// PUBLIC: save a new contact message
+app.post('/api/contact-messages', async (req, res) => {
+    try {
+      const {
+        first_name,
+        last_name,
+        email,
+        contact_number,
+        inquiry_type,
+        message,
+      } = req.body || {};
+  
+      if (!email || !email.trim()) {
+        return res.status(400).json({ success: false, error: 'Email is required' });
+      }
+      if (!inquiry_type || !inquiry_type.trim()) {
+        return res.status(400).json({ success: false, error: 'Inquiry type is required' });
+      }
+      if (!message || !message.trim()) {
+        return res.status(400).json({ success: false, error: 'Message is required' });
+      }
+  
+      const [result] = await pool.query(
+        `INSERT INTO contact_messages 
+          (first_name, last_name, email, contact_number, inquiry_type, message, status) 
+         VALUES (?, ?, ?, ?, ?, ?, 'new')`,
+        [
+          first_name || null,
+          last_name || null,
+          email.trim(),
+          contact_number || null,
+          inquiry_type || null,
+          message || null,
+        ]
+      );
+  
+      return res.status(201).json({ success: true, id: result.insertId });
+    } catch (err) {
+      console.error('POST /api/contact-messages error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to save message' });
+    }
+  });
+  
+  // ADMIN: list messages (with search + pagination)
+  app.get('/api/contact-messages', async (req, res) => {
+    try {
+      let { page = 1, pageSize = 20, q = '' } = req.query;
+  
+      page = parseInt(page, 10) || 1;
+      pageSize = parseInt(pageSize, 10) || 20;
+      if (page < 1) page = 1;
+      if (pageSize < 1) pageSize = 20;
+      if (pageSize > 100) pageSize = 100;
+  
+      const offset = (page - 1) * pageSize;
+      const term = (q || '').trim();
+  
+      const whereParts = [];
+      const params = [];
+  
+      if (term) {
+        const like = `%${term}%`;
+        whereParts.push(
+          `(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR contact_number LIKE ? OR inquiry_type LIKE ? OR message LIKE ?)`
+        );
+        params.push(like, like, like, like, like, like);
+      }
+  
+      const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+  
+      // total count for pagination
+      const [[countRow]] = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM contact_messages ${where}`,
+        params
+      );
+      const totalItems = countRow.cnt || 0;
+      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+      // rows for this page
+      const [rows] = await pool.query(
+        `
+        SELECT 
+          id,
+          first_name,
+          last_name,
+          email,
+          contact_number,
+          inquiry_type,
+          message,
+          status,
+          created_at
+        FROM contact_messages
+        ${where}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ? OFFSET ?
+        `,
+        [...params, pageSize, offset]
+      );
+  
+      return res.json({
+        items: rows,
+        page,
+        totalPages,
+        totalItems,
       });
+    } catch (err) {
+      console.error('GET /api/contact-messages error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to load messages' });
+    }
+  });
+  
+  // ADMIN: update status (Normal → new, Solved → replied, Trash → archived)
+  app.patch('/api/contact-messages/:id/status', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      let { status } = req.body || {};
+  
+      if (!status) {
+        return res.status(400).json({ success: false, error: 'status is required' });
+      }
+  
+      status = String(status).toLowerCase().trim();
+  
+      const allowed = ['new', 'replied', 'archived'];
+      if (!allowed.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid status. Allowed: ${allowed.join(', ')}`,
+        });
+      }
+  
+      const [result] = await pool.query(
+        `UPDATE contact_messages SET status = ? WHERE id = ?`,
+        [status, id]
+      );
+  
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Message not found' });
+      }
+  
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('PATCH /api/contact-messages/:id/status error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to update status' });
+    }
+  });
+
+  /* ---------------- PRODUCT GALLERY ---------------- */
+
+// UPLOAD multiple images
+app.post("/api/products/:id/gallery", upload.array("gallery", 10), async (req, res) => {
+  try {
+    const productId = req.params.id;
+    if (!req.files?.length) return res.status(400).json({ error: "No images uploaded" });
+
+    const conn = await pool.getConnection();
+    try {
+      for (const file of req.files) {
+        await conn.query(
+          "INSERT INTO product_images (product_id, image, image_mime) VALUES (?, ?, ?)",
+          [productId, file.buffer, file.mimetype]
+        );
+      }
+    } finally {
+      conn.release();
     }
 
-    const recipientEmail = rows[0].email;
-
-    // 2) (Optional) Send the email using nodemailer or similar
-    // Example if you have nodemailer set up:
-    /*
-    await transporter.sendMail({
-      from: '"Sweet Treats Davao" <no-reply@sweettreats.com>',
-      to: recipientEmail,
-      subject,
-      text: body,
-    });
-    */
-
-    // 3) Update status in DB to 'replied'
-    await db.query(
-      "UPDATE contact_messages SET status = ? WHERE id = ?",
-      ["replied", id]
-    );
-
-    // 4) Respond JSON so frontend is happy
-    res.json({
-      success: true,
-      message: "Reply processed successfully.",
-    });
+    res.json({ success: true, uploaded: req.files.length });
   } catch (err) {
-    console.error("Error in /api/contact-messages/:id/reply:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to send reply.",
-    });
+    console.error("Gallery upload error:", err);
+    res.status(500).json({ error: "Gallery upload failed" });
   }
 });
 
-// PATCH /api/contact-messages/:id/status → update message status (new, replied, archived)
-app.patch("/api/contact-messages/:id/status", async (req, res) => {
+// GET gallery images
+app.get("/api/products/:id/gallery", async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    const [rows] = await pool.query(
+      "SELECT id, image_mime, sort_order FROM product_images WHERE product_id = ? ORDER BY sort_order, id",
+      [req.params.id]
+    );
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("Gallery fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch gallery" });
+  }
+});
 
-    if (!status) {
-      return res.status(400).json({ success: false, message: "Status is required" });
-    }
-
-    await pool.query(
-      "UPDATE contact_messages SET status = ? WHERE id = ?",
-      [status, id]
+// SERVE individual image blobs
+app.get("/api/gallery/:imageId", async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT image, image_mime FROM product_images WHERE id = ? LIMIT 1",
+      [req.params.imageId]
     );
 
-    res.json({ success: true, message: "Status updated" });
+    if (!rows.length) return res.status(404).send("Image not found");
+
+    res.set("Content-Type", rows[0].image_mime);
+    res.send(rows[0].image);
   } catch (err) {
-    console.error("PATCH /api/contact-messages/:id/status error:", err);
-    res.status(500).json({ success: false, message: "Failed to update status" });
+    console.error("Gallery image error:", err);
+    res.status(500).json({ error: "Failed to load image" });
+  }
+});
+
+// DELETE gallery image
+app.delete("/api/gallery/:imageId", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM product_images WHERE id = ?", [req.params.imageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Gallery delete error:", err);
+    res.status(500).json({ error: "Failed to delete image" });
+  }
+});
+
+// UPDATE sorting
+app.put("/api/products/:id/gallery/sort", async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ error: "Invalid format" });
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      for (const item of items) {
+        await conn.query(
+          "UPDATE product_images SET sort_order = ? WHERE id = ?",
+          [item.sort_order, item.id]
+        );
+      }
+
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Gallery sort error:", err);
+    res.status(500).json({ error: "Failed to update sort" });
   }
 });
 

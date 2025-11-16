@@ -12,7 +12,6 @@ function getCartKey() {
   return email ? `cart_${email}` : "cart_guest";
 }
 
-
 function peso(n) {
   const v = Number(n || 0);
   return `₱${v.toFixed(2)} PHP`;
@@ -22,7 +21,7 @@ export default function Cart() {
   const navigate = useNavigate();
 
   // ---------- CART DATA ----------
-  const [items, setItems] = useState([]); // [{ product_id, qty, unit_price, name?, image_url? }]
+  const [items, setItems] = useState([]); // [{ product_id, qty, unit_price, name?, image_url?, flavor?, addons? }]
 
   useEffect(() => {
     const raw = localStorage.getItem(getCartKey());
@@ -32,18 +31,14 @@ export default function Cart() {
     } catch {
       parsed = [];
     }
-  
-    // hydrate() ...
-  
 
-    // hydrate (name/image/price) if needed
     async function hydrate() {
       const filled = await Promise.all(
         parsed.map(async (it) => {
           const hasAll =
             it?.name && it?.image_url !== undefined && it?.unit_price !== undefined;
           if (hasAll) return it;
-    
+
           try {
             const r = await fetch(`${API}/api/products/${it.product_id}`);
             if (!r.ok) throw new Error("product not found");
@@ -59,11 +54,10 @@ export default function Cart() {
           }
         })
       );
-    
+
       setItems(filled);
-      localStorage.setItem(getCartKey(), JSON.stringify(filled)); // ✅ use per-user key
+      localStorage.setItem(getCartKey(), JSON.stringify(filled));
     }
-    
 
     hydrate();
   }, []);
@@ -73,7 +67,6 @@ export default function Cart() {
     setItems(next);
     localStorage.setItem(getCartKey(), JSON.stringify(next));
   }
-  
 
   function inc(product_id) {
     save(
@@ -158,39 +151,57 @@ export default function Cart() {
             {items.map((it) => {
               const rowTotal =
                 Number(it.unit_price || 0) * Number(it.qty || 0);
+
               return (
                 <div
-                  key={it.product_id}
-                  className="grid grid-cols-[1fr_180px_160px] gap-2 items-center py-5"
+                  key={it.product_id + JSON.stringify(it.addons) + it.flavor}
+                  className="grid grid-cols-[1fr_180px_160px] gap-2 items-start py-5"
                 >
                   {/* Product cell */}
-                  <div className="flex items-center gap-4">
-                    <div className="mt-[20px] mb-[20px] w-[160px] h-[160px] border-[3px] border-[#5B4220] overflow-hidden bg-white">
-                      <img
-                        src={it.image_url || "/placeholder.png"}
-                        alt={it.name || "Product"}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="leading-tight">
-                      <div className="text-sm text-[#332601] ml-[50px]">
-                        {it.name || "Product"}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-4">
+                      <div className="mt-[20px] mb-[20px] w-[160px] h-[160px] border-[3px] border-[#5B4220] overflow-hidden bg-white">
+                        <img
+                          src={it.image_url || "/placeholder.png"}
+                          alt={it.name || "Product"}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                      <div className="text-xs text-[#4A3600] ml-[50px] mt-1">
-                        {peso(Number(it.unit_price || 0))}
+                      <div className="leading-tight">
+                        <div className="text-sm text-[#332601] ml-[50px]">
+                          {it.name || "Product"}
+                        </div>
+                        <div className="text-xs text-[#4A3600] ml-[50px] mt-1">
+                          {peso(Number(it.unit_price || 0))}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Flavor */}
+                    {it.flavor && (
+                      <div className="ml-[210px] text-xs text-[#332601]">
+                        Flavor: <span className="font-medium">{it.flavor}</span>
+                      </div>
+                    )}
+
+                    {/* Add-ons */}
+                    {it.addons && it.addons.length > 0 && (
+                      <div className="ml-[210px] text-xs text-[#332601]">
+                        Add-ons:{" "}
+                        {it.addons
+                          .map((a) => (typeof a === "string" ? a : a.title))
+                          .join(", ")}
+                      </div>
+                    )}
                   </div>
 
                   {/* Quantity cell */}
                   <div className="flex items-center justify-center gap-3">
-                    {/* qty group */}
                     <div className="flex items-center justify-between w-[112px] h-[36px] border-2 border-[#5B4220] px-3 mr-[20px] bg-transparent">
                       <button
                         type="button"
                         onClick={() => dec(it.product_id)}
-                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none
-                                   bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0"
+                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
                         aria-label="Decrease quantity"
                       >
                         –
@@ -203,21 +214,17 @@ export default function Cart() {
                       <button
                         type="button"
                         onClick={() => inc(it.product_id)}
-                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none
-                                   bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0"
+                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
                         aria-label="Increase quantity"
                       >
                         +
                       </button>
                     </div>
 
-                    {/* Remove (no border/background) */}
                     <button
                       type="button"
                       onClick={() => removeItem(it.product_id)}
-                      className="ml-3 inline-flex items-center justify-center p-0
-                                 bg-transparent border-0 shadow-none appearance-none
-                                 outline-none ring-0 focus:outline-none focus:ring-0 hover:opacity-80"
+                      className="ml-3 inline-flex items-center justify-center p-0 bg-transparent border-0"
                       title="Remove item"
                       aria-label="Remove item"
                     >
@@ -241,7 +248,6 @@ export default function Cart() {
 
             {/* Footer row: notes + summary */}
             <div className="grid grid-cols-[1fr_360px] gap-8 mt-[40px]">
-              {/* Notes */}
               <div>
                 <p className="text-sm text-[#332601] mb-[10px]">
                   Order special instructions
@@ -252,7 +258,6 @@ export default function Cart() {
                 />
               </div>
 
-              {/* Summary */}
               <div className="flex flex-col items-end">
                 <div className="text-right mb-2">
                   <div className="mt-[15px] text-sm text-[#332601] font-semibold">
@@ -263,31 +268,9 @@ export default function Cart() {
                   </div>
                 </div>
 
-                {/* Date & time */}
-                <div className="w-full flex items-center justify-end gap-2 text-xs text-[#332601] mb-3">
-                  <span>Select date and time:</span>
-                  <input
-                    type="date"
-                    className="border border-[#5B4220] rounded px-2 py-1 bg-white"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                  />
-                  <input
-                    type="time"
-                    className="border border-[#5B4220] rounded px-2 py-1 bg-white"
-                    defaultValue={new Date().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
-                  />
-                </div>
-
-                {/* Checkout button (force white text even when disabled) */}
                 <button
                   type="button"
-                  className="mt-1 w-[220px] h-[36px] rounded-full bg-[#5B4220]
-                             text-white !text-white hover:opacity-90
-                             disabled:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="mt-1 w-[220px] h-[36px] rounded-full bg-[#5B4220] text-white hover:opacity-90 disabled:text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   onClick={() => navigate("/checkout")}
                   disabled={items.length === 0}
                 >
@@ -298,10 +281,12 @@ export default function Cart() {
           </div>
         </main>
 
-        {/* FEATURED PRODUCTS */}
-        <section className="bg-[#4A3600] w-full mt-[80px]">
+         {/* FEATURED PRODUCTS */}
+         <section className="bg-[#4A3600] w-full mt-[80px]">
           <div className="h-[95px] flex items-center justify-center">
-            <h2 className="m-0 text-lg font-semibold !text-white">Featured products</h2>
+            <h2 className="m-0 text-lg font-semibold text-white">
+              Featured products
+            </h2>
           </div>
         </section>
 

@@ -208,6 +208,9 @@ div.flex-1.p-6 .search-btn:focus {
         <div className="flex-1 p-6 mt-[30px] ml-[30px] mr-[30px]">
           <h1 className="text-3xl font-bold mb-3">User Management</h1>
 
+          <hr className="border-t border-[#8b7760]" />
+
+
           {/* ADD / EDIT FORM – 1st row: name/email/role; 2nd row: password/active/button */}
           <form
   onSubmit={handleSave}
@@ -293,7 +296,7 @@ div.flex-1.p-6 .search-btn:focus {
           </form>
 
           {/* USERS TABLE – styled like Inventory table */}
-          <div className=" mt-[20px] bg-white shadow-md rounded-lg overflow-hidden table-wrapper mt-[10px]">
+          <div className=" mb-[60px] mt-[20px] bg-white shadow-md rounded-lg overflow-hidden table-wrapper mt-[10px]">
             <table className="w-full text-left border-collapse user-table">
               <thead>
                 <tr>

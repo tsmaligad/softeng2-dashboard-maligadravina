@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
+import Sortable from "sortablejs";
+
+
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 
 const API_BASE = import.meta?.env?.VITE_API_BASE || "http://localhost:8080";
 
@@ -13,10 +19,15 @@ export default function ProductsManagement() {
     name: "",
     base_price: "",
     image: "",
+    flavors: [], // will hold full flavor objects
+    addons: [], // will hold full addon objects
   });
+  const [galleryFiles, setGalleryFiles] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [gallery, setGallery] = useState([]);
+
 
   /* ---------------- FETCH ---------------- */
   useEffect(() => {
@@ -38,6 +49,49 @@ export default function ProductsManagement() {
       setLoading(false);
     }
   }
+
+  async function fetchGallery(productId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/products/${productId}/gallery`);
+      const data = await res.json();
+      setGallery(data.items || []);
+    } catch (err) {
+      console.error("Failed to load gallery:", err);
+    }
+  }
+
+  useEffect(() => {
+    if (gallery.length === 0) return;
+  
+    const el = document.getElementById("gallery-sortable");
+    if (!el) return;
+  
+    Sortable.create(el, {
+      animation: 150,
+      ghostClass: "opacity-50",
+      onEnd: async (evt) => {
+        // Recalculate new order
+        const updatedOrder = [...el.children].map((child, index) => ({
+          id: Number(child.dataset.id),
+          sort_order: index,
+        }));
+  
+        // Send new order to backend
+        await fetch(`${API_BASE}/api/products/${form.id}/gallery/sort`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: updatedOrder }),
+        });
+  
+        // Refresh
+        fetchGallery(form.id);
+      },
+    });
+  }, [gallery]);
+
+  
+
+  
 
   async function fetchFlavors() {
     try {
@@ -75,30 +129,34 @@ export default function ProductsManagement() {
   }
 
   function resetForm() {
-    setForm({ id: null, name: "", base_price: "", image: "" });
+    setForm({ id: null, name: "", base_price: "", image: "", flavors: [], addons: [] });
     setImageFile(null);
   }
 
   function viewProduct(p) {
     setSelectedProduct(p);
   }
-  
+
   function editProduct(p) {
     setForm({
       id: p.id,
       name: p.name ?? "",
       sizes: p.sizes || [],
-      flavors: p.flavors || [],
-      addons: p.addons || [],
+      flavors: Array.isArray(p.flavors) ? p.flavors : [],
+      addons: Array.isArray(p.addons) ? p.addons : [],
       base_price: String(p.base_price ?? ""),
-      image: p.image || "",
+      image: p.image ? `${API_BASE}${p.image}` : "",
     });
-    // optional: close modal if coming from there
+  
+    fetchGallery(p.id);  // ⭐ LOAD GALLERY IMAGES
+  
     setSelectedProduct(null);
-    // jump to the form
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   
+  
+
+
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -114,10 +172,20 @@ export default function ProductsManagement() {
         : `${API_BASE}/api/products-admin`;
       const method = form.id ? "PUT" : "POST";
 
+      // send form as JSON; flavors/addons are full objects as required
+      const payload = {
+        name: form.name,
+        base_price: Number(form.base_price),
+        image: form.image, // could be a URL or path; your backend handles image upload separately below
+        sizes: form.sizes || [],
+        flavors: form.flavors || [],
+        addons: form.addons || [],
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Save failed");
 
@@ -135,6 +203,22 @@ export default function ProductsManagement() {
           body: fd,
         });
       }
+
+      // 📌 Upload gallery images
+if (galleryFiles.length > 0 && productId) {
+  const galleryForm = new FormData();
+  galleryFiles.forEach(file => {
+    galleryForm.append("gallery", file);
+  });
+
+  await fetch(`${API_BASE}/api/products/${productId}/gallery`, {
+    method: "POST",
+    body: galleryForm,
+  });
+}
+
+
+
 
       fetchProducts();
       resetForm();
@@ -236,43 +320,101 @@ export default function ProductsManagement() {
     }
   }
 
+  /* ---------------- CHIP TOGGLE HELPERS ---------------- */
+
+  // Check if a flavor object (by id) is currently selected in form.flavors
+  function isFlavorSelected(flavor) {
+    return form.flavors.some((f) => Number(f.id) === Number(flavor.id));
+  }
+
+  // Toggle flavor: add/remove the full object
+  function toggleFlavor(flavor) {
+    setForm((f) => {
+      const exists = (f.flavors || []).some((x) => Number(x.id) === Number(flavor.id));
+      const newFlavors = exists
+        ? f.flavors.filter((x) => Number(x.id) !== Number(flavor.id))
+        : [...(f.flavors || []), flavor];
+      return { ...f, flavors: newFlavors };
+    });
+  }
+
+  function isAddonSelected(addon) {
+    return form.addons.some((a) => Number(a.id) === Number(addon.id));
+  }
+
+  function toggleAddon(addon) {
+    setForm((f) => {
+      const exists = (f.addons || []).some((x) => Number(x.id) === Number(addon.id));
+      const newAddons = exists
+        ? f.addons.filter((x) => Number(x.id) !== Number(addon.id))
+        : [...(f.addons || []), addon];
+      return { ...f, addons: newAddons };
+    });
+  }
+
   /* ---------------- UI ---------------- */
 
-  // Little helper for the tab buttons
-  function TabButton({ id, label, className = "" }) {
-    const active = tab === id;
-    return (
-      <button
-        onClick={() => setTab(id)}
-        className={[
-          "px-4 py-2 rounded-full border transition",
-          active
-            ? "bg-[#FFC6C6] text-white border-[#332601] shadow"
-            : "bg-white text-[#332601] border-[#332601] hover:bg-[#F5EFEF]",
-          className,                 // ← merge external classes
-        ].join(" ")}
-        aria-pressed={active}
-      >
-        {label}
-      </button>
-    );
-  }
-  
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-b from-[#FAF9F7] to-[#F3F1ED] ">
+    <div className="flex min-h-screen bg-[#F5EFEF]">
+
       <Sidebar />
-      <main className="flex-1 p-6 ml-[30px] mr-[30px] mt-[30px] ">
+      <main className="mb-[50px] flex-1 p-6 ml-[30px] mr-[30px] mt-[30px] ">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Products Management</h1>
 
+        <hr className="border-t border-[#8b7760]" />
+
         {/* --- Top center tabs --- */}
-        <div className="w-full flex justify-center mb-[30px]">
-          <div className="flex p-2">
-            <TabButton id="products" label="Product Management" className="mr-[10px]" />
-            <TabButton id="flavors" label="Flavors" className="mr-[10px]" />
-            <TabButton id="addons" label="Add-ons" />
-          </div>
-        </div>
+        {/* --- Top center tabs (MUI, same style as status tabs) --- */}
+<div className="mt-4 mb-[30px]">
+  <Box
+    sx={{
+      width: "100%",
+      bgcolor: "#FFFFFF",          // white background
+      borderRadius: 2,
+      px: 1,
+      border: "1px solid #EADBD8", // soft outline (same as AdminContact/EditPages)
+    }}
+  >
+    <Tabs
+      value={tab} // ← bind to your state: "products" | "flavors" | "addons"
+      onChange={(_event, newValue) => setTab(newValue)}
+      variant="scrollable"
+      scrollButtons
+      allowScrollButtonsMobile
+      aria-label="products management tabs"
+      TabIndicatorProps={{
+        style: {
+          backgroundColor: "#4A3600", // brown underline
+          height: 3,
+          borderRadius: 9999,
+        },
+      }}
+      sx={{
+        "& .MuiTab-root": {
+          textTransform: "none",
+          fontSize: 14,
+          paddingInline: "24px",
+          paddingBlock: "10px",
+          minHeight: 48,
+          color: "#6B5B45",   // muted brown
+          fontWeight: 500,
+        },
+        "& .MuiTab-root.Mui-selected": {
+          color: "#4A3600",   // deeper brown when active
+          fontWeight: 600,
+        },
+        "& .MuiTabs-scrollButtons": {
+          color: "#4A3600",
+        },
+      }}
+    >
+      <Tab value="products" label="Product Management" />
+      <Tab value="flavors" label="Flavors" />
+      <Tab value="addons" label="Add-ons" />
+    </Tabs>
+  </Box>
+</div>
 
 
         {/* --- PRODUCTS TAB --- */}
@@ -316,25 +458,173 @@ export default function ProductsManagement() {
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-[#F5EFEF] border border-[#332601] text-[#332601] px-4 py-2 font-semibold mr-[5px]"
-              >
-                {form.id ? "Update Product" : "Add Product"}
-              </button>
 
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-200 px-4 py-2 rounded mr-[5px]"
-              >
-                Reset
-              </button>
+              {/* GALLERY IMAGES UPLOAD (multiple) */}
+<div className="flex flex-col items-start mt-2 w-full">
+  <label className="text-sm font-semibold text-[#332601] mb-1">
+    Gallery Images (multiple allowed)
+  </label>
+
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    onChange={(e) => {
+      setGalleryFiles((prev) => [...prev, ...Array.from(e.target.files)]);
+    }}
+    
+    className="border px-2 py-1 text-sm w-[250px]"
+  />
+</div>
+
+{/* EXISTING GALLERY PREVIEW */}
+{gallery.length > 0 && (
+  <div className="w-full mt-3">
+    <h3 className="text-sm font-semibold text-[#332601] mb-2">
+      Existing Gallery Images
+    </h3>
+
+    <div id="gallery-sortable" className="flex flex-wrap gap-3">
+
+      {gallery.map(img => (
+        <div key={img.id} data-id={img.id} className="relative">
+
+          <img
+            src={`${API_BASE}/api/gallery/${img.id}`}
+            className="w-20 h-20 object-cover rounded border"
+          />
+
+          <button
+            className="absolute top-0 right-0 bg-red-600 text-white text-[10px] px-1 rounded"
+            onClick={() => handleDeleteGallery(img.id)}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* PREVIEW NEW GALLERY IMAGES */}
+{galleryFiles.length > 0 && (
+  <div className="w-full mt-3">
+    <h3 className="text-sm font-semibold text-[#332601] mb-2">
+      New Images To Upload
+    </h3>
+
+    <div className="flex flex-wrap gap-3">
+      {galleryFiles.map((file, index) => (
+        <div key={index} className="relative w-20 h-20">
+          
+          <img
+            src={URL.createObjectURL(file)}
+            className="w-20 h-20 object-cover rounded border"
+          />
+
+          {/* DELETE BUTTON */}
+          <button
+            type="button"
+            className="absolute top-0 right-0 bg-red-600 text-white text-[10px] px-1 rounded"
+            onClick={() =>
+              setGalleryFiles((prev) => prev.filter((_, i) => i !== index))
+            }
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+
+
+
+
+
+              {/* ------------------ CHIP SECTIONS (Flavors + Add-ons) ------------------ */}
+              <div className="w-full mt-2">
+                {/* Flavors chips */}
+                <div className="mb-2">
+                  <div className="text-sm font-semibold text-[#332601] mb-2">Flavors</div>
+                  <div className="flex flex-wrap gap-2">
+                    {flavors.length > 0 ? (
+                      flavors.map((flv) => {
+                        const active = isFlavorSelected(flv);
+                        return (
+                          <button
+                            key={flv.id}
+                            type="button"
+                            onClick={() => toggleFlavor(flv)}
+                            className={[
+                              "px-3 py-1 rounded-full text-sm border transition-select inline-flex items-center",
+                              active
+                                ? "bg-[#FFC6C6] text-white border-[#332601]"
+                                : "bg-white text-[#332601] border-[#cfcfcf] hover:bg-[#F5EFEF]",
+                            ].join(" ")}
+                          >
+                            {flv.name}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-sm text-gray-500 italic">No flavors available.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add-ons chips */}
+                <div>
+                  <div className="text-sm font-semibold text-[#332601] mb-2">Add-ons</div>
+                  <div className="flex flex-wrap gap-2">
+                    {addons.length > 0 ? (
+                      addons.map((ad) => {
+                        const active = isAddonSelected(ad);
+                        return (
+                          <button
+                            key={ad.id}
+                            type="button"
+                            onClick={() => toggleAddon(ad)}
+                            className={[
+                              "px-3 py-1 rounded-full text-sm border transition-select inline-flex items-center",
+                              active
+                                ? "bg-[#FFC6C6] text-white border-[#332601]"
+                                : "bg-white text-[#332601] border-[#cfcfcf] hover:bg-[#F5EFEF]",
+                            ].join(" ")}
+                          >
+                            {ad.title}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-sm text-gray-500 italic">No add-ons available.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full flex gap-2 mt-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-[#F5EFEF] border border-[#332601] text-[#332601] px-4 py-2 font-semibold mr-[5px]"
+                >
+                  {form.id ? "Update Product" : "Add Product"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="bg-gray-200 px-4 py-2 rounded mr-[5px]"
+                >
+                  Reset
+                </button>
+              </div>
             </form>
 
             {/* PRODUCTS GRID — now 4 per row, no white bg or borders */}
-<style>{`
+            <style>{`
   .admin-grid {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -372,58 +662,50 @@ export default function ProductsManagement() {
   }
 `}</style>
 
-<div className="admin-grid">
-  {products.length > 0 ? (
-    products.map((p) => (
-      <div key={p.id} className="admin-card">
-        <div className="admin-thumb">
-          <img
-            src={p.image ? `${API_BASE}${p.image}` : "/placeholder.png"}
-            alt={p.name}
-          />
-        </div>
+            <div className="admin-grid">
+              {products.length > 0 ? (
+                products.map((p) => (
+                  <div key={p.id} className="admin-card">
+                    <div className="admin-thumb">
+                      <img
+                        src={p.image ? `${API_BASE}${p.image}` : "/placeholder.png"}
+                        alt={p.name}
+                      />
+                    </div>
 
-        <div className="mt-2">
-          <h2 className="text-[14px] font-semibold text-[#332601] mb-1 line-clamp-2">
-            {p.name}
-          </h2>
-          <p className="text-[13px] text-[#4A3600] mb-3 font-medium">
-            From ₱{p.base_price}.00 PHP
-          </p>
+                    <div className="mt-2">
+                      <h2 className="text-[14px] font-semibold text-[#332601] mb-1 line-clamp-2">
+                        {p.name}
+                      </h2>
+                      <p className="text-[13px] text-[#4A3600] mb-3 font-medium">
+                        From ₱{p.base_price}.00 PHP
+                      </p>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => viewProduct(p)}
-              className="px-3 py-1 rounded border border-gray-300 text-[12px] text-gray-700 hover:bg-gray-50"
-            >
-              View
-            </button>
-            <button
-              onClick={() => editProduct(p)}
-              className="px-3 py-1 rounded border border-[#332601] text-[12px] text-[#332601] hover:bg-[#F5EFEF]"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => handleDelete(p.id)}
-              className="px-3 py-1 rounded bg-red-500 text-[12px] text-white hover:bg-red-600"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    ))
-  ) : (
-    <p className="text-center text-gray-500 italic col-span-full">No products found.</p>
-  )}
+
+
+                      <div className="flex gap-2">
+  <button
+    onClick={() => editProduct(p)}
+    className="px-3 py-1 text-[12px] rounded-full bg-[#FFC6C6] text-[#332601] border border-[#E7B2B2] font-semibold hover:brightness-95"
+  >
+    Edit
+  </button>
+
+  <button
+    onClick={() => handleDelete(p.id)}
+    className="px-3 py-1 text-[12px] rounded-full bg-[#FFD1D1] text-[#7A1F1F] border border-[#F3BBBB] font-semibold hover:brightness-95"
+  >
+    Delete
+  </button>
 </div>
 
-
-
-
-
-
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 italic col-span-full">No products found.</p>
+              )}
+            </div>
           </>
         )}
 
@@ -553,6 +835,12 @@ export default function ProductsManagement() {
                         name: selectedProduct.name ?? "",
                         base_price: selectedProduct.base_price ?? "",
                         image: selectedProduct.image ? `${API_BASE}${selectedProduct.image}` : "",
+                        flavors: Array.isArray(selectedProduct.flavors)
+                          ? selectedProduct.flavors
+                          : [],
+                        addons: Array.isArray(selectedProduct.addons)
+                          ? selectedProduct.addons
+                          : [],
                       });
                       setSelectedProduct(null);
                       setTab("products"); // jump back to product form

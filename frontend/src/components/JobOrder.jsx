@@ -37,6 +37,8 @@ export default function JobOrder() {
       <main className="flex-1 p-6 md:ml-[20px]">
         <h1 className="text-3xl font-bold text-[#332601] mb-6 mt-[50px] ml-[30px]">Job Orders</h1>
 
+        <hr className="border-t border-[#8b7760]" />
+
         {loading && <p className="text-center py-10 text-[#5B4220]">Loading orders...</p>}
         {error && <p className="text-center py-10 text-red-600 font-medium">{error}</p>}
         {!loading && !error && orders.length === 0 && (

@@ -21,6 +21,7 @@ const EditPages = () => {
   const [value, setValue] = React.useState(0);
   const handleChange = (_event, newValue) => setValue(newValue);
 
+  
   return (
     <div className="flex gap-10 min-h-screen bg-[#F5EFEF] text-[#332601]">
 
@@ -126,6 +127,24 @@ const HomepageEditor = () => {
   const [products, setProducts] = React.useState([]); // normalized to array
   const [faqs, setFaqs] = React.useState([]); // normalized to array
 
+
+  const PRODUCT_PAGE_SIZE = 10;
+  const FAQ_PAGE_SIZE = 5;
+  const [faqPage, setFaqPage] = React.useState(1); // 2 columns × 5 rows
+  const [productPage, setProductPage] = React.useState(1);
+
+  function getProductImage(p) {
+    // try common keys, fallback to empty string
+    return (
+      p.image_url ||
+      p.image ||
+      p.photo_url ||
+      p.thumbnail_url ||
+      ""
+    );
+  }
+
+
   React.useEffect(() => {
     (async () => {
       try {
@@ -156,6 +175,23 @@ const HomepageEditor = () => {
       }
     })();
   }, []);
+
+  React.useEffect(() => {
+    const max = Math.max(
+      1,
+      Math.ceil((products.length || 1) / PRODUCT_PAGE_SIZE)
+    );
+    setProductPage((prev) => Math.min(prev, max));
+  }, [products.length]);
+
+  React.useEffect(() => {
+    const max = Math.max(
+      1,
+      Math.ceil((faqs.length || 1) / FAQ_PAGE_SIZE)
+    );
+    setFaqPage((prev) => Math.min(prev, max));
+  }, [faqs.length]);
+
 
   async function handleHeroChange(e) {
     const file = e.target.files?.[0];
@@ -257,6 +293,28 @@ function moveHero(oldIndex, delta) {
     );
   }
 
+  const totalProductPages = Math.max(
+    1,
+    Math.ceil((products.length || 1) / PRODUCT_PAGE_SIZE)
+  );
+  const safeProductPage = Math.min(productPage, totalProductPages);
+  const productStart = (safeProductPage - 1) * PRODUCT_PAGE_SIZE;
+  const pageProducts = products.slice(
+    productStart,
+    productStart + PRODUCT_PAGE_SIZE
+  );
+
+    // 👉 HOMEPAGE FAQ pagination math
+    const totalFaqPages = Math.max(
+      1,
+      Math.ceil((faqs.length || 1) / FAQ_PAGE_SIZE)
+    );
+    const safeFaqPage = Math.min(faqPage, totalFaqPages);
+    const faqStart = (safeFaqPage - 1) * FAQ_PAGE_SIZE;
+    const pageFaqs = faqs.slice(faqStart, faqStart + FAQ_PAGE_SIZE);
+  
+
+
   const isDefaultHero = !heroUrl;
   const previewHero = heroUrl || heroFallback; // matches public Homepage logic
 
@@ -345,48 +403,128 @@ function moveHero(oldIndex, delta) {
 </div>
 
 
-      {/* ---------------- FEATURED PRODUCTS ---------------- */}
-      <h3 className="font-semibold mb-2 mt-[30px] ml-[10px]">Featured Products</h3>
-      <p className="text-sm text-gray-600 ml-[10px] mb-3">
-        Choose which products appear in the “Featured products” grid.
-      </p>
+            {/* ---------------- FEATURED PRODUCTS ---------------- */}
+<h3 className="font-semibold mb-2 mt-[70px] ml-[10px]">Featured Products</h3>
+<p className="text-sm text-gray-600 ml-[10px] mb-3">
+  Choose which products appear in the “Featured products” grid.
+</p>
 
-      <div className="ml-[10px]">
-        {products.length === 0 ? (
-          <div className="text-sm text-gray-500">No products found.</div>
-        ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {products.map((p) => (
-              <li
-                key={p.id}
-                className={`flex items-center justify-between rounded-lg border p-3 ${
-                  featuredIds.includes(p.id) ? "bg-emerald-50 border-emerald-300" : "bg-white"
-                }`}
-              >
-                <div className="text-sm">
-                  <div className="font-medium">{p.name}</div>
-                  {p.price != null && (
-                    <div className="text-xs text-gray-600">
-                      ₱{Number(p.price ?? p.base_price ?? 0).toLocaleString()}
-                    </div>
-                  )}
+<div className="ml-[10px]">
+  {products.length === 0 ? (
+    <div className="text-sm text-gray-500">No products found.</div>
+  ) : (
+    <>
+      {/* 2 columns × 5 rows = 10 products per page */}
+      <ul className="grid grid-cols-2 gap-3">
+        {pageProducts.map((p) => {
+          const img = getProductImage(p);
+          const isFeatured = featuredIds.includes(p.id);
+
+          return (
+            <li
+              key={p.id}
+              className={`flex items-center gap-3 rounded-2xl border px-3 py-3 bg-white transition-shadow ${
+                isFeatured
+                  ? "ring-2 ring-[#4A3600] border-[#4A3600]/40 shadow-sm"
+                  : "hover:shadow-sm"
+              }`}
+            >
+              {/* Thumbnail */}
+              {img ? (
+                <img
+                  src={img}
+                  alt={p.name}
+                  className="w-16 h-16 rounded-xl object-cover border border-[#E5D7C7] shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-[#F5EBE3] border border-[#E5D7C7] flex items-center justify-center text-[11px] text-[#A78A6A] shrink-0">
+                  No image
                 </div>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={featuredIds.includes(p.id)}
-                    onChange={() => toggleFeatured(p.id)}
-                  />
-                  <span>{featuredIds.includes(p.id) ? "Featured" : "Feature"}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              )}
 
-      {/* ---------------- FAQS ---------------- */}
-      <h3 className="font-semibold mb-2 mt-[30px] ml-[10px]">Homepage FAQs</h3>
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-[#332601] truncate">
+                  {p.name}
+                </div>
+                {(p.price != null || p.base_price != null) && (
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    ₱{Number(p.price ?? p.base_price ?? 0).toLocaleString()}
+                  </div>
+                )}
+
+                {isFeatured && (
+                  <span className="inline-flex items-center mt-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 border border-emerald-200">
+                    Featured on homepage
+                  </span>
+                )}
+              </div>
+
+              {/* Toggle */}
+              <label className="flex flex-col items-end gap-1 text-xs shrink-0">
+                <input
+                  type="checkbox"
+                  className="accent-[#4A3600]"
+                  checked={isFeatured}
+                  onChange={() => toggleFeatured(p.id)}
+                />
+                <span className="text-[11px]">
+                  {isFeatured ? "Remove" : "Add"}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Pagination – ALWAYS SHOWN WHEN THERE ARE PRODUCTS */}
+      <div className="flex items-center justify-between mt-3 text-xs text-gray-600">
+        <span>
+          Page {safeProductPage} of {totalProductPages} ·{" "}
+          {products.length} product
+          {products.length !== 1 ? "s" : ""}
+        </span>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setProductPage((p) => Math.max(1, p - 1))
+            }
+            disabled={safeProductPage === 1}
+            className={`rounded-lg px-3 py-1.5 border transition ${
+              safeProductPage === 1
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-[#F3F1ED]"
+            }`}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setProductPage((p) => Math.min(totalProductPages, p + 1))
+            }
+            disabled={safeProductPage === totalProductPages}
+            className={`rounded-lg px-3 py-1.5 border transition ${
+              safeProductPage === totalProductPages
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-[#F3F1ED]"
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </>
+  )}
+</div>
+
+
+
+
+            {/* ---------------- FAQS ---------------- */}
+            <h3 className="font-semibold mb-2 mt-[70px] ml-[10px]">Homepage FAQs</h3>
       <p className="text-sm text-gray-600 ml-[10px] mb-3">
         Select which FAQs will appear in the homepage accordion.
       </p>
@@ -395,34 +533,80 @@ function moveHero(oldIndex, delta) {
         {faqs.length === 0 ? (
           <div className="text-sm text-gray-500">No FAQs found.</div>
         ) : (
-          <ul className="space-y-2">
-            {faqs.map((f) => (
-              <li
-                key={f.id}
-                className={`flex items-center justify-between rounded-lg border p-3 ${
-                  faqIds.includes(f.id) ? "bg-blue-50 border-blue-300" : "bg-white"
-                }`}
-              >
-                <div className="text-sm">
-                  <div className="font-medium">{f.q}</div>
-                  <div className="text-xs text-gray-600 line-clamp-2">{f.a}</div>
-                </div>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={faqIds.includes(f.id)}
-                    onChange={() => toggleFaq(f.id)}
-                  />
-                  <span>{faqIds.includes(f.id) ? "Shown" : "Show"}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-2">
+              {pageFaqs.map((f) => (
+                <li
+                  key={f.id}
+                  className={`flex items-center justify-between rounded-lg border p-3 ${
+                    faqIds.includes(f.id)
+                      ? "bg-blue-50 border-blue-300"
+                      : "bg-white"
+                  }`}
+                >
+                  <div className="text-sm">
+                    <div className="font-medium">{f.q}</div>
+                    <div className="text-xs text-gray-600 line-clamp-2">
+                      {f.a}
+                    </div>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={faqIds.includes(f.id)}
+                      onChange={() => toggleFaq(f.id)}
+                    />
+                    <span>{faqIds.includes(f.id) ? "Shown" : "Show"}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+
+            {/* FAQ Pagination – 5 per page */}
+            <div className="flex items-center justify-between mt-3 text-xs text-gray-600">
+              <span>
+                Page {safeFaqPage} of {totalFaqPages} · {faqs.length} FAQ
+                {faqs.length !== 1 ? "s" : ""}
+              </span>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFaqPage((p) => Math.max(1, p - 1))
+                  }
+                  disabled={safeFaqPage === 1}
+                  className={`rounded-lg px-3 py-1.5 border transition ${
+                    safeFaqPage === 1
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#F3F1ED]"
+                  }`}
+                >
+                  Previous
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFaqPage((p) => Math.min(totalFaqPages, p + 1))
+                  }
+                  disabled={safeFaqPage === totalFaqPages}
+                  className={`rounded-lg px-3 py-1.5 border transition ${
+                    safeFaqPage === totalFaqPages
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#F3F1ED]"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
       {/* ---------------- SAVE ---------------- */}
-      <div className="flex justify-end mt-8">
+      <div className=" mt-[15px] flex justify-end mt-8">
         <button
           onClick={handleSave}
           className="rounded-xl bg-[#4A3600] text-white px-5 py-2.5 text-sm font-medium shadow-md hover:bg-[#3a2a00] transition"
@@ -452,6 +636,9 @@ const FaqEditor = () => {
     sort_order: 0,
   });
   const isEditing = form.id !== null;
+  const PAGE_SIZE = 5;
+  const [page, setPage] = React.useState(1);
+
 
   // --- NEW: DnD state for reordering ---
   const [dragIndex, setDragIndex] = React.useState(null);
@@ -514,6 +701,12 @@ const arr = Array.isArray(data?.items) ? data.items : [];
 
   React.useEffect(() => { load(); }, []);
 
+  React.useEffect(() => {
+    const max = Math.max(1, Math.ceil((faqs.length || 1) / PAGE_SIZE));
+    setPage((prev) => Math.min(prev, max));
+  }, [faqs.length]);
+  
+
   function startEdit(item) {
     setForm({
       id: item.id,
@@ -557,6 +750,12 @@ const arr = Array.isArray(data?.items) ? data.items : [];
       setSaving(false);
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil((faqs.length || 1) / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const pageFaqs = faqs.slice(startIndex, startIndex + PAGE_SIZE);
+
 
   async function remove(id) {
     if (!confirm("Delete this FAQ?")) return;
@@ -659,53 +858,111 @@ const arr = Array.isArray(data?.items) ? data.items : [];
               </div>
             )}
 
-            <ul className="divide-y">
-              {faqs.map((f, idx) => (
-                <li
-                  key={f.id}
-                  draggable
-                  onDragStart={(e) => onDragStart(e, idx)}
-                  onDragOver={(e) => onDragOver(e, idx)}
-                  onDrop={onDrop}
-                  className={`p-4 ${dragIndex === idx ? "bg-amber-50" : "bg-white"}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
-  <span className="cursor-grab select-none" title="Drag to reorder">≡</span>
-  <span className="opacity-60">#{idx + 1}</span>
-</div>
+<ul className="divide-y">
+              {pageFaqs.map((f, idxInPage) => {
+                const globalIndex = startIndex + idxInPage; // index in full faqs[]
 
+                return (
+                  <li
+                    key={f.id}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, globalIndex)}
+                    onDragOver={(e) => onDragOver(e, globalIndex)}
+                    onDrop={onDrop}
+                    className={`p-4 ${
+                      dragIndex === globalIndex ? "bg-amber-50" : "bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <span
+                            className="cursor-grab select-none"
+                            title="Drag to reorder"
+                          >
+                            ≡
+                          </span>
+                          <span className="opacity-60">#{globalIndex + 1}</span>
+                        </div>
 
-                      <div className="font-medium text-[#332601]">{f.q}</div>
-                      <div className="text-sm text-gray-700 mt-1 whitespace-pre-line">{f.a}</div>
-                      <div className="text-xs mt-1">
-                        Status: {f.enabled ? (
-                          <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700 border border-green-200">Active</span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 border border-gray-300">Inactive</span>
-                        )}
+                        <div className="font-medium text-[#332601]">
+                          {f.q}
+                        </div>
+                        <div className="text-sm text-gray-700 mt-1 whitespace-pre-line">
+                          {f.a}
+                        </div>
+                        <div className="text-xs mt-1">
+                          Status:{" "}
+                          {f.enabled ? (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700 border border-green-200">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 border border-gray-300">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => startEdit(f)}
+                          className="rounded-lg border px-3 py-1.5 text-xs hover:bg-gray-100 transition"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => remove(f.id)}
+                          className="rounded-lg border px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        onClick={() => startEdit(f)}
-                        className="rounded-lg border px-3 py-1.5 text-xs hover:bg-gray-100 transition"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => remove(f.id)}
-                        className="rounded-lg border px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
+
+            {/* Pagination bar */}
+            <div className="flex items-center justify-between px-4 py-3 border-t bg-[#FBF3F3]">
+              <span className="text-xs text-gray-600">
+                Page {safePage} of {totalPages} · {faqs.length} FAQ
+                {faqs.length !== 1 ? "s" : ""}
+              </span>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  className={`rounded-lg px-3 py-1.5 text-xs border transition ${
+                    safePage === 1
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#F3F1ED]"
+                  }`}
+                >
+                  Previous
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  className={`rounded-lg px-3 py-1.5 text-xs border transition ${
+                    safePage === totalPages
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#F3F1ED]"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
+
+               
           </>
         )}
       </div>

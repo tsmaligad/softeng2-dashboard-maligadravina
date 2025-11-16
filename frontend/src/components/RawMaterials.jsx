@@ -24,6 +24,7 @@ const RawMaterials = ({ onDataChange }) => {
     units: "",
     price: "",
     status: "Available",
+    expiration_date: "", // <-- added
   });
   const [editingMaterial, setEditingMaterial] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -108,6 +109,7 @@ const RawMaterials = ({ onDataChange }) => {
         units: "",
         price: "",
         status: "Available",
+        expiration_date: "", // <-- reset
       });
     }
   };
@@ -134,6 +136,7 @@ const RawMaterials = ({ onDataChange }) => {
       units: mat.units || "",
       price: String(mat.price ?? ""),
       status: mat.status || "Available",
+      expiration_date: mat.expiration_date || "", // <-- added
     });
   };
 
@@ -141,37 +144,24 @@ const RawMaterials = ({ onDataChange }) => {
     <>
       {/* ===== Raw Materials “inspo” look (scoped to this page, same as Inventory) ===== */}
       <style>{`
-        /* Page background (target the same container used here) */
         div.flex-1.p-6 { background: #f5efef; }
-
-        /* Section cards (the add form + the table wrapper) */
         div.flex-1.p-6 > .bg-white.shadow-md.rounded-lg {
           border: 1px solid #eadbd8;
           box-shadow: 0 2px 10px rgba(0,0,0,0.03);
           border-radius: 16px !important;
         }
-
-        /* Error bubble */
-        div.flex-1.p-6 .mb-4.rounded.bg-red-100 {
-          border: 1px solid #f5caca;
-        }
-
-        /* The add/edit form block */
+        div.flex-1.p-6 .mb-4.rounded.bg-red-100 { border: 1px solid #f5caca; }
         div.flex-1.p-6 form.bg-white.shadow-md.rounded-lg.p-4 {
           background: #fff;
           border: 1px solid #eadbd8;
           border-radius: 16px;
         }
-
-        /* Inputs/selects inside the add/edit form */
         div.flex-1.p-6 form.bg-white.shadow-md.rounded-lg.p-4 input,
         div.flex-1.p-6 form.bg-white.shadow-md.rounded-lg.p-4 select {
           border-color: #bdaaa2 !important;
           border-radius: 9999px !important;
           height: 40px;
         }
-
-        /* Primary button (Add / Update) */
         div.flex-1.p-6 form.bg-white.shadow-md.rounded-lg.p-4 button[type="submit"] {
           background: #ffc6c6 !important;
           color: #332601 !important;
@@ -183,27 +173,15 @@ const RawMaterials = ({ onDataChange }) => {
         div.flex-1.p-6 form.bg-white.shadow-md.rounded-lg.p-4 button[type="submit"]:hover {
           filter: brightness(0.97);
         }
-
-        /* Table header (soft peach bar) */
-        div.flex-1.p-6 table thead tr {
-          background: #ffe1e1 !important;
-        }
+        div.flex-1.p-6 table thead tr { background: #ffe1e1 !important; }
         div.flex-1.p-6 table thead th {
           color: #4a3600;
           font-weight: 700;
           letter-spacing: 0.02em;
           border-color: #f3d6d6 !important;
         }
-
-        /* Table cells and rows */
-        div.flex-1.p-6 table tbody tr td {
-          border-color: #f1e3e3 !important;
-        }
-        div.flex-1.p-6 table tbody tr:hover {
-          background: #fcf7f7;
-        }
-
-        /* Action buttons in table */
+        div.flex-1.p-6 table tbody tr td { border-color: #f1e3e3 !important; }
+        div.flex-1.p-6 table tbody tr:hover { background: #fcf7f7; }
         div.flex-1.p-6 table tbody button {
           border-radius: 9999px !important;
           padding: 6px 12px;
@@ -219,8 +197,6 @@ const RawMaterials = ({ onDataChange }) => {
           color: #7a1f1f !important;
           border-color: #f3bbbb;
         }
-
-        /* Heading tone/spacings */
         div.flex-1.p-6 > h1 {
           color: #332601;
           margin-top: 6px;
@@ -233,6 +209,8 @@ const RawMaterials = ({ onDataChange }) => {
         <div className=" mt-[30px] ml-[30px] mr-[30px] flex-1 p-6 bg-gray-50 min-h-screen">
           <h1 className="text-3xl font-bold mb-3 ">Raw Materials</h1>
 
+          <hr className="border-t border-[#8b7760]" />
+
           {loadError && (
             <div className=" mb-4 rounded bg-red-100 text-red-800 px-3 py-2 text-sm">
               {loadError}
@@ -241,14 +219,14 @@ const RawMaterials = ({ onDataChange }) => {
 
           <form
             onSubmit={handleAddMaterial}
-            className="bg-white shadow-md  p-4 mb-6 flex gap-4 flex-wrap "
+            className="bg-white shadow-md p-4 mb-6 flex gap-4 flex-wrap"
           >
             <input
               type="text"
               placeholder="Name"
               value={newMaterial.name}
               onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
-              className="border px-3 py-2  flex-1 mr-[8px] "
+              className="border px-3 py-2 flex-1 mr-[8px]"
             />
             <input
               type="text"
@@ -291,6 +269,13 @@ const RawMaterials = ({ onDataChange }) => {
               <option value="Available">Available</option>
               <option value="Not Available">Not Available</option>
             </select>
+            <input
+              type="date"
+              placeholder="Expiration Date"
+              value={newMaterial.expiration_date}
+              onChange={(e) => setNewMaterial({ ...newMaterial, expiration_date: e.target.value })}
+              className="border px-3 py-2 rounded-md w-40 mr-[8px]"
+            />
             <button
               type="submit"
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
@@ -311,6 +296,7 @@ const RawMaterials = ({ onDataChange }) => {
                   <th className="p-3 border">Units</th>
                   <th className="p-3 border">Price</th>
                   <th className="p-3 border">Status</th>
+                  <th className="p-3 border">Expiration Date</th> 
                   <th className="p-3 border text-center">Actions</th>
                 </tr>
               </thead>
@@ -328,6 +314,9 @@ const RawMaterials = ({ onDataChange }) => {
                         : "—"}
                     </td>
                     <td className="p-3 border">{mat.status}</td>
+                    <td className="p-3 border">
+                      {mat.expiration_date ? mat.expiration_date : "—"}
+                    </td>
                     <td className="p-3 border text-center">
                       <div className="flex gap-2 justify-center">
                         <button
@@ -349,7 +338,7 @@ const RawMaterials = ({ onDataChange }) => {
 
                 {materials.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="p-4 text-center text-gray-500">
+                    <td colSpan="9" className="p-4 text-center text-gray-500">
                       {loading ? "Loading…" : "No raw materials found"}
                     </td>
                   </tr>
@@ -364,4 +353,3 @@ const RawMaterials = ({ onDataChange }) => {
 };
 
 export default RawMaterials;
-
