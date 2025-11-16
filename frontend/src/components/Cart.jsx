@@ -23,6 +23,9 @@ export default function Cart() {
   // ---------- CART DATA ----------
   const [items, setItems] = useState([]); // [{ product_id, qty, unit_price, name?, image_url?, flavor?, addons? }]
 
+  const [openDetails, setOpenDetails] = useState({}); // key → boolean
+
+
   useEffect(() => {
     const raw = localStorage.getItem(getCartKey());
     let parsed = [];
@@ -134,12 +137,17 @@ export default function Cart() {
             </h1>
 
             {/* Header */}
-            <div className="grid grid-cols-[1fr_180px_160px] items-center text-xs tracking-wide text-[#463300] opacity-70 px-2">
-              <span>PRODUCT</span>
-              <span className="text-center mr-[100px]">QUANTITY</span>
-              <span className="text-right mr-[50px]">TOTAL</span>
-            </div>
-            <hr className="my-3 border-[#d7cbbb]" />
+<div className="grid grid-cols-[1fr_180px_160px] items-center text-xs tracking-wide text-[#463300] opacity-70">
+  <span className="text-left">PRODUCT</span>
+  <span className="text-center">QUANTITY</span>
+  <span className="text-right">TOTAL</span>
+</div>
+<hr className="opacity-60 my-3 border-b-[2px] border-[#4A3600]" />
+
+
+
+
+
 
             {/* Items */}
             {items.length === 0 && (
@@ -148,103 +156,104 @@ export default function Cart() {
               </p>
             )}
 
-            {items.map((it) => {
-              const rowTotal =
-                Number(it.unit_price || 0) * Number(it.qty || 0);
+{items.map((it) => {
+  const rowTotal = Number(it.unit_price || 0) * Number(it.qty || 0);
 
-              return (
-                <div
-                  key={it.product_id + JSON.stringify(it.addons) + it.flavor}
-                  className="grid grid-cols-[1fr_180px_160px] gap-2 items-start py-5"
-                >
-                  {/* Product cell */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-4">
-                      <div className="mt-[20px] mb-[20px] w-[160px] h-[160px] border-[3px] border-[#5B4220] overflow-hidden bg-white">
-                        <img
-                          src={it.image_url || "/placeholder.png"}
-                          alt={it.name || "Product"}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="leading-tight">
-                        <div className="text-sm text-[#332601] ml-[50px]">
-                          {it.name || "Product"}
-                        </div>
-                        <div className="text-xs text-[#4A3600] ml-[50px] mt-1">
-                          {peso(Number(it.unit_price || 0))}
-                        </div>
-                      </div>
-                    </div>
+  return (
+    <div
+      key={it.product_id + JSON.stringify(it.addons) + it.flavor}
+      className="grid grid-cols-[1fr_180px_160px] gap-2 items-center py-5"
+    >
+      {/* Product cell */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-4">
+          <div className="mb-[20px] w-[160px] h-[160px] border-[3px] border-[#5B4220] overflow-hidden bg-white">
+            <img
+              src={it.image_url || "/placeholder.png"}
+              alt={it.name || "Product"}
+              className="w-full h-full object-cover"
+            />
+          </div>
 
-                    {/* Flavor */}
-                    {it.flavor && (
-                      <div className="ml-[210px] text-xs text-[#332601]">
-                        Flavor: <span className="font-medium">{it.flavor}</span>
-                      </div>
-                    )}
+          <div className="leading-tight">
+            <div className="text-sm text-[#332601]">
+              {it.name || "Product"}
+            </div>
+            <div className="text-xs text-[#4A3600] mt-1">
+              {peso(Number(it.unit_price || 0))}
+            </div>
+          </div>
+        </div>
 
-                    {/* Add-ons */}
-                    {it.addons && it.addons.length > 0 && (
-                      <div className="ml-[210px] text-xs text-[#332601]">
-                        Add-ons:{" "}
-                        {it.addons
-                          .map((a) => (typeof a === "string" ? a : a.title))
-                          .join(", ")}
-                      </div>
-                    )}
-                  </div>
+        {/* Flavor */}
+        {it.flavor && (
+          <div className="pl-[180px] text-xs text-[#332601]">
+            Flavor: <span className="font-medium">{it.flavor}</span>
+          </div>
+        )}
 
-                  {/* Quantity cell */}
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="flex items-center justify-between w-[112px] h-[36px] border-2 border-[#5B4220] px-3 mr-[20px] bg-transparent">
-                      <button
-                        type="button"
-                        onClick={() => dec(it.product_id)}
-                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
-                        aria-label="Decrease quantity"
-                      >
-                        –
-                      </button>
+        {/* Add-ons */}
+        {it.addons && it.addons.length > 0 && (
+          <div className="pl-[180px] text-xs text-[#332601]">
+            Add-ons:{" "}
+            {it.addons
+              .map((a) => (typeof a === "string" ? a : a.title))
+              .join(", ")}
+          </div>
+        )}
+      </div>
 
-                      <span className="w-1/3 text-center text-[#463300] select-none">
-                        {it.qty || 1}
-                      </span>
+      {/* Quantity cell */}
+      <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-between w-[112px] h-[36px] border-2 border-[#5B4220] px-3 mr-[20px] bg-transparent">
+          <button
+            type="button"
+            onClick={() => dec(it.product_id)}
+            className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
+            aria-label="Decrease quantity"
+          >
+            –
+          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => inc(it.product_id)}
-                        className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
+          <span className="w-1/3 text-center text-[#463300] select-none">
+            {it.qty || 1}
+          </span>
 
-                    <button
-                      type="button"
-                      onClick={() => removeItem(it.product_id)}
-                      className="ml-3 inline-flex items-center justify-center p-0 bg-transparent border-0"
-                      title="Remove item"
-                      aria-label="Remove item"
-                    >
-                      <img
-                        src={bin}
-                        alt="Remove"
-                        className="h-[18px] w-[18px] pointer-events-none select-none"
-                      />
-                    </button>
-                  </div>
+          <button
+            type="button"
+            onClick={() => inc(it.product_id)}
+            className="w-1/3 text-center text-[#5B4220] text-[18px] leading-none bg-transparent border-0 outline-none"
+            aria-label="Increase quantity"
+          >
+            +
+          </button>
+        </div>
 
-                  {/* Row total */}
-                  <div className="text-right text-[#332601]">
-                    {peso(rowTotal)}
-                  </div>
-                </div>
-              );
-            })}
+        <button
+          type="button"
+          onClick={() => removeItem(it.product_id)}
+          className="ml-3 inline-flex items-center justify-center p-0 bg-transparent border-0"
+          title="Remove item"
+          aria-label="Remove item"
+        >
+          <img
+            src={bin}
+            alt="Remove"
+            className="h-[18px] w-[18px] pointer-events-none select-none"
+          />
+        </button>
+      </div>
 
-            <hr className="my-6 border-[#d7cbbb]" />
+      {/* Row total */}
+      <div className="text-right text-[#332601]">
+        {peso(rowTotal)}
+      </div>
+    </div>
+  );
+})}
+
+
+<hr className="opacity-60 my-3 border-b-[2px] border-[#4A3600]" />
 
             {/* Footer row: notes + summary */}
             <div className="grid grid-cols-[1fr_360px] gap-8 mt-[40px]">

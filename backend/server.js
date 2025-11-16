@@ -1024,48 +1024,9 @@ app.post("/api/inventory", async (req, res) => {
 
 /* ------------ PRODUCTS: Public (read-only) ------------ */
 
-app.get('/api/products', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT 
-        id,
-        name,
-        base_price,
-        sizes,
-        flavors,
-        addons,
-        enabled,
-        (image IS NOT NULL) AS has_image,
-        image_mime,
-        created_at,
-        updated_at
-      FROM products
-      WHERE enabled = 1
-      ORDER BY created_at DESC
-    `);
-
-    const items = rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      base_price: Number(r.base_price),
-      sizes: r.sizes ? JSON.parse(r.sizes) : [],
-      flavors: r.flavors ? JSON.parse(r.flavors) : [],
-      addons: r.addons ? JSON.parse(r.addons) : [],
-      image_url: r.has_image ? `/api/products/${r.id}/image` : null,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }));
-
-    res.json({ items });
-  } catch (e) {
-    console.error('GET /api/products error:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-
 
 // GET /api/products/:id
+// GET /api/products/:id  (PUBLIC - used by ProductDetail.jsx)
 app.get('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1074,6 +1035,8 @@ app.get('/api/products/:id', async (req, res) => {
          id,
          name,
          base_price,
+   
+         options,
          sizes,
          flavors,
          addons,
@@ -1083,21 +1046,74 @@ app.get('/api/products/:id', async (req, res) => {
          created_at,
          updated_at
        FROM products
-       WHERE id = ? AND enabled = 1
+       WHERE id = ? 
        LIMIT 1`,
       [id]
     );
 
-    if (!rows.length) return res.status(404).json({ message: 'Product not found' });
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
 
     const p = rows[0];
+
+    // --- parse options safely ---
+    let options = null;
+    if (p.options) {
+      try {
+        options =
+          typeof p.options === 'string'
+            ? JSON.parse(p.options)
+            : p.options;
+      } catch (err) {
+        console.error('Failed to parse product.options JSON:', err);
+        options = null;
+      }
+    }
+
+    // --- normalize boolean flags ---
+    function norm(raw, fallback) {
+      if (raw === undefined || raw === null) return fallback;
+      if (raw === true || raw === false) return raw;
+
+      if (typeof raw === 'string') {
+        const lower = raw.toLowerCase();
+        if (lower === 'true' || lower === '1') return true;
+        if (lower === 'false' || lower === '0') return false;
+      }
+
+      if (typeof raw === 'number') {
+        if (raw === 1) return true;
+        if (raw === 0) return false;
+      }
+
+      return Boolean(raw);
+    }
+
+    const rawCakeFlag =
+      options?.hasCakeDetails ??
+      options?.has_cake_details;
+
+    const rawCupcakeFlag =
+      options?.hasCupcakeDetails ??
+      options?.has_cupcake_details;
+
+    const hasCakeDetails   = norm(rawCakeFlag, true);
+    const hasCupcakeDetails = norm(rawCupcakeFlag, false);
+
+    const effectivePrice = Number(p.base_price ?? p.price ?? 0);
+
     res.json({
       id: p.id,
       name: p.name,
-      base_price: Number(p.base_price),
+      base_price: Number(p.base_price ?? 0),
+      price: effectivePrice,
       sizes: p.sizes ? JSON.parse(p.sizes) : [],
       flavors: p.flavors ? JSON.parse(p.flavors) : [],
       addons: p.addons ? JSON.parse(p.addons) : [],
+      options,              // 🔴 now sent to frontend
+      hasCakeDetails,       // 🔴 frontend will pick this up
+      hasCupcakeDetails,    // 🔴 THIS is what will unlock cupcakes
       image_url: p.has_image ? `/api/products/${p.id}/image` : null,
       created_at: p.created_at,
       updated_at: p.updated_at,
@@ -1107,8 +1123,6 @@ app.get('/api/products/:id', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-
 
 // Main image (bytes) for <img src=...>
 app.get('/api/products/:id/image', async (req, res) => {
@@ -1126,6 +1140,8 @@ app.get('/api/products/:id/image', async (req, res) => {
     res.status(500).json({ error: 'Failed to load image' });
   }
 });
+
+
 
 // POST /api/products/:id/image → upload a product photo
 // POST /api/products/:id/image → upload a product photo
@@ -1168,22 +1184,40 @@ app.post('/api/products/:id/image', upload.single('image'), async (req, res) => 
 app.get("/api/products-admin", async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, base_price, sizes, flavors, addons, enabled,
-              (image IS NOT NULL) AS has_image
-         FROM products
-         ORDER BY id DESC`
+      `SELECT
+         id,
+         name,
+         base_price,
+         sizes,
+         flavors,
+         addons,
+         options,
+         enabled,
+         (image IS NOT NULL) AS has_image
+       FROM products
+       ORDER BY id DESC`
     );
 
-    const items = rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      base_price: r.base_price,
-      sizes: r.sizes ? JSON.parse(r.sizes) : [],
-      flavors: r.flavors ? JSON.parse(r.flavors) : [],
-      addons: r.addons ? JSON.parse(r.addons) : [],
-      enabled: !!r.enabled,
-      image: r.has_image ? `/api/products/${r.id}/image` : null,
-    }));
+    const items = rows.map((r) => {
+      const sizes = r.sizes ? JSON.parse(r.sizes) : [];
+      const flavors = r.flavors ? JSON.parse(r.flavors) : [];
+      const addons = r.addons ? JSON.parse(r.addons) : [];
+      const options = r.options ? JSON.parse(r.options) : {};
+
+      return {
+        id: r.id,
+        name: r.name,
+        base_price: r.base_price,
+        sizes,
+        flavors,
+        addons,
+        options,
+        hasCakeDetails: options.hasCakeDetails ?? true,   // defaults
+        hasCupcakeDetails: options.hasCupcakeDetails ?? false,
+        enabled: !!r.enabled,
+        image: r.has_image ? `/api/products/${r.id}/image` : null,
+      };
+    });
 
     res.json({ items });
   } catch (e) {
@@ -1192,24 +1226,42 @@ app.get("/api/products-admin", async (req, res) => {
   }
 });
 
+
+
+
 // POST /api/products-admin
 app.post("/api/products-admin", async (req, res) => {
   try {
-    const { name, base_price, sizes, flavors, addons } = req.body || {};
+    const { name, base_price, sizes, flavors, addons, options } = req.body || {};
 
     if (!name || !base_price) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    const normSizes = sizes || [];
+    const normFlavors = flavors || [];
+    const normAddons = addons || [];
+
+    // Build what we want to store in `options`
+    const mergedOptions = {
+      hasCakeDetails: !!(options && options.hasCakeDetails),
+      hasCupcakeDetails: !!(options && options.hasCupcakeDetails),
+      sizes: normSizes,
+      flavors: normFlavors,
+      addons: normAddons,
+    };
+
     const [result] = await pool.query(
-      `INSERT INTO products (name, base_price, sizes, flavors, addons, enabled)
-       VALUES (?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO products
+         (name, base_price, sizes, flavors, addons, options, enabled)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
       [
         name,
         base_price,
-        JSON.stringify(sizes || []),
-        JSON.stringify(flavors || []),
-        JSON.stringify(addons || []),
+        JSON.stringify(normSizes),
+        JSON.stringify(normFlavors),
+        JSON.stringify(normAddons),
+        JSON.stringify(mergedOptions),
       ]
     );
 
@@ -1220,22 +1272,43 @@ app.post("/api/products-admin", async (req, res) => {
   }
 });
 
+
+// PUT /api/products-admin/:id
 // PUT /api/products-admin/:id
 app.put("/api/products-admin/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, base_price, sizes, flavors, addons } = req.body;
+    const { name, base_price, sizes, flavors, addons, options } = req.body || {};
+
+    const normSizes = sizes || [];
+    const normFlavors = flavors || [];
+    const normAddons = addons || [];
+
+    const mergedOptions = {
+      hasCakeDetails: !!(options && options.hasCakeDetails),
+      hasCupcakeDetails: !!(options && options.hasCupcakeDetails),
+      sizes: normSizes,
+      flavors: normFlavors,
+      addons: normAddons,
+    };
 
     await pool.query(
       `UPDATE products
-       SET name=?, base_price=?, sizes=?, flavors=?, addons=?
-       WHERE id=?`,
+       SET
+         name = ?,
+         base_price = ?,
+         sizes = ?,
+         flavors = ?,
+         addons = ?,
+         options = ?
+       WHERE id = ?`,
       [
         name,
         base_price,
-        JSON.stringify(sizes || []),
-        JSON.stringify(flavors || []),
-        JSON.stringify(addons || []),
+        JSON.stringify(normSizes),
+        JSON.stringify(normFlavors),
+        JSON.stringify(normAddons),
+        JSON.stringify(mergedOptions),
         id,
       ]
     );
@@ -1246,6 +1319,7 @@ app.put("/api/products-admin/:id", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 // DELETE /api/products-admin/:id
 app.delete("/api/products-admin/:id", async (req, res) => {
@@ -1294,23 +1368,20 @@ app.get("/api/products/:id/image", async (req, res) => {
 
 /* ------------ PRODUCTS: Public (read-only) ------------ */
 
-// GET /api/products
+// GET /api/products  (PUBLIC LISTING)
 app.get('/api/products', async (req, res) => {
   try {
-    const { q = '', category = '', page = 1, pageSize = 24 } = req.query;
+    const { q = '', page = 1, pageSize = 24 } = req.query;
+
     const limit = Math.min(Math.max(parseInt(pageSize, 10) || 24, 1), 100);
     const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * limit;
 
-    const filters = ['(is_active = 1 OR enabled = 1 OR enabled IS NULL)'];
+    const filters = ['enabled = 1']; // only show enabled products
     const params = [];
 
     if (q) {
-      filters.push('(name LIKE ? OR description LIKE ?)');
-      params.push(`%${q}%`, `%${q}%`);
-    }
-    if (category) {
-      filters.push('(category = ? OR category IS NULL)');
-      params.push(category);
+      filters.push('name LIKE ?');
+      params.push(`%${q}%`);
     }
 
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
@@ -1319,45 +1390,44 @@ app.get('/api/products', async (req, res) => {
       `SELECT
          id,
          name,
-         description,
-         category,
-         price,
          base_price,
-         options,
          sizes,
          flavors,
          addons,
-         (image IS NOT NULL) AS has_image,
-         image_mime,
-         created_at,
-         updated_at
+         options,
+         (image IS NOT NULL) AS has_image
        FROM products
        ${where}
-       ORDER BY created_at DESC, id DESC
+       ORDER BY id DESC
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
-    const items = rows.map(r => {
-      const effectivePrice = r.price != null ? Number(r.price) : Number(r.base_price ?? 0);
-      const options = r.options
-        ? JSON.parse(r.options)
-        : {
-            sizes: r.sizes ? JSON.parse(r.sizes) : [],
-            flavors: r.flavors ? JSON.parse(r.flavors) : [],
-            addons: r.addons ? JSON.parse(r.addons) : [],
-          };
+    const safeParse = (value, fallback) => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.error('Bad JSON in products row:', err);
+        return fallback;
+      }
+    };
+
+    const items = rows.map((r) => {
+      let options = safeParse(r.options, {});
+
+      if (!options.sizes)   options.sizes   = safeParse(r.sizes, []);
+      if (!options.flavors) options.flavors = safeParse(r.flavors, []);
+      if (!options.addons)  options.addons  = safeParse(r.addons, []);
+
+      const effectivePrice = Number(r.base_price ?? 0);
 
       return {
         id: r.id,
         name: r.name,
-        description: r.description || '',
-        category: r.category || '',
         price: effectivePrice,
         options,
         image_url: r.has_image ? `/api/products/${r.id}/image` : null,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
       };
     });
 
@@ -1367,52 +1437,6 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ error: 'Failed to list products' });
   }
 });
-
-// GET /api/products/:id
-app.get('/api/products/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [rows] = await pool.query(
-      `SELECT
-         id, name, description, category,
-         price, base_price,
-         options, sizes, flavors, addons,
-         (image IS NOT NULL) AS has_image, image_mime,
-         created_at, updated_at
-       FROM products
-       WHERE id = ? LIMIT 1`,
-      [id]
-    );
-    if (!rows.length) return res.status(404).json({ message: 'Not found' });
-
-    const p = rows[0];
-    const effectivePrice = p.price != null ? Number(p.price) : Number(p.base_price ?? 0);
-    const options = p.options
-      ? JSON.parse(p.options)
-      : {
-          sizes: p.sizes ? JSON.parse(p.sizes) : [],
-          flavors: p.flavors ? JSON.parse(p.flavors) : [],
-          addons: p.addons ? JSON.parse(p.addons) : [],
-        };
-
-    res.json({
-      id: p.id,
-      name: p.name,
-      description: p.description || '',
-      category: p.category || '',
-      price: effectivePrice,
-      options,
-      image_url: p.has_image ? `/api/products/${p.id}/image` : null,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-    });
-  } catch (e) {
-    console.error('GET /api/products/:id error:', e);
-    res.status(500).json({ message: 'Failed to load product' });
-  }
-});
-
-
 
 
 
@@ -1905,30 +1929,71 @@ app.post('/api/contact-messages', async (req, res) => {
 
   /* ---------------- PRODUCT GALLERY ---------------- */
 
-// UPLOAD multiple images
-app.post("/api/products/:id/gallery", upload.array("gallery", 10), async (req, res) => {
-  try {
-    const productId = req.params.id;
-    if (!req.files?.length) return res.status(400).json({ error: "No images uploaded" });
+/* ---------------- PRODUCT GALLERY ---------------- */
 
-    const conn = await pool.getConnection();
-    try {
-      for (const file of req.files) {
-        await conn.query(
-          "INSERT INTO product_images (product_id, image, image_mime) VALUES (?, ?, ?)",
-          [productId, file.buffer, file.mimetype]
-        );
-      }
-    } finally {
-      conn.release();
+// UPLOAD multiple images (append with proper sort_order)
+app.post("/api/products/:id/gallery", (req, res) => {
+  // run multer manually so we can catch its errors
+  upload.array("gallery", 10)(req, res, async (err) => {
+    if (err) {
+      console.error("Multer gallery error:", err);
+      return res.status(400).json({
+        success: false,
+        error: err.message || "Upload error",
+      });
     }
 
-    res.json({ success: true, uploaded: req.files.length });
+    try {
+      const productId = req.params.id;
+
+      if (!req.files?.length) {
+        return res.status(400).json({ success: false, error: "No images uploaded" });
+      }
+
+      const conn = await pool.getConnection();
+      try {
+        const [rows] = await conn.query(
+          "SELECT COALESCE(MAX(sort_order), -1) AS maxOrder FROM product_images WHERE product_id = ?",
+          [productId]
+        );
+        let nextOrder = (rows[0]?.maxOrder ?? -1) + 1;
+
+        for (const file of req.files) {
+          await conn.query(
+            `INSERT INTO product_images (product_id, image, image_mime, sort_order)
+             VALUES (?, ?, ?, ?)`,
+            [productId, file.buffer, file.mimetype, nextOrder]
+          );
+          nextOrder++;
+        }
+
+        return res.json({ success: true, uploaded: req.files.length });
+      } finally {
+        conn.release();
+      }
+    } catch (e) {
+      console.error("Gallery upload error FULL:", e);
+      return res.status(500).json({
+        success: false,
+        error: e.message || "Gallery upload failed",
+      });
+    }
+  });
+});
+
+
+// alias so frontend path /api/products/:id/gallery/:imageId works too
+app.delete("/api/products/:id/gallery/:imageId", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM product_images WHERE id = ?", [req.params.imageId]);
+    res.json({ success: true });
   } catch (err) {
-    console.error("Gallery upload error:", err);
-    res.status(500).json({ error: "Gallery upload failed" });
+    console.error("Gallery delete (alias) error:", err);
+    res.status(500).json({ error: "Failed to delete image" });
   }
 });
+
+
 
 // GET gallery images
 app.get("/api/products/:id/gallery", async (req, res) => {

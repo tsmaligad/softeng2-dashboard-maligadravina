@@ -21,6 +21,9 @@ export default function ProductsManagement() {
     image: "",
     flavors: [], // will hold full flavor objects
     addons: [], // will hold full addon objects
+    hasCakeDetails: true,      // show cake section by default
+  hasCupcakeDetails: false,  // hide cupcake section by default
+
   });
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [imageFile, setImageFile] = useState(null);
@@ -51,14 +54,21 @@ export default function ProductsManagement() {
   }
 
   async function fetchGallery(productId) {
+    if (!productId) return;
+
     try {
-      const res = await fetch(`${API_BASE}/api/products/${productId}/gallery`);
+      const res = await fetch(
+        `${API_BASE}/api/products/${productId}/gallery?t=${Date.now()}`
+      );
       const data = await res.json();
+
+      console.log("📸 gallery for product", productId, data.items);
       setGallery(data.items || []);
     } catch (err) {
       console.error("Failed to load gallery:", err);
     }
   }
+
 
   useEffect(() => {
     if (gallery.length === 0) return;
@@ -129,15 +139,32 @@ export default function ProductsManagement() {
   }
 
   function resetForm() {
-    setForm({ id: null, name: "", base_price: "", image: "", flavors: [], addons: [] });
+    setForm({
+      id: null,
+      name: "",
+      base_price: "",
+      image: "",
+      flavors: [],
+      addons: [],
+      hasCakeDetails: true,
+    hasCupcakeDetails: false,
+    });
     setImageFile(null);
+    setGalleryFiles([]);  // ✅ clear new uploads
+    setGallery([]);       // ✅ clear existing gallery preview
   }
+  
 
   function viewProduct(p) {
     setSelectedProduct(p);
   }
 
   function editProduct(p) {
+    // 🔹 clear any unsaved uploads from the previous product
+    setGalleryFiles([]);
+    setImageFile(null);
+    setGallery([]); // optional: so you don't see old gallery for a split second
+  
     setForm({
       id: p.id,
       name: p.name ?? "",
@@ -146,15 +173,24 @@ export default function ProductsManagement() {
       addons: Array.isArray(p.addons) ? p.addons : [],
       base_price: String(p.base_price ?? ""),
       image: p.image ? `${API_BASE}${p.image}` : "",
+      hasCakeDetails: p.options?.hasCakeDetails ?? true,
+  hasCupcakeDetails: p.options?.hasCupcakeDetails ?? false,
     });
   
-    fetchGallery(p.id);  // ⭐ LOAD GALLERY IMAGES
+    // ⭐ load this product's gallery images
+    fetchGallery(p.id);
   
     setSelectedProduct(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   
   
+  useEffect(() => {
+    setGalleryFiles([]);
+  }, [form.id]);
+  
+
+
 
 
 
@@ -165,21 +201,27 @@ export default function ProductsManagement() {
       return;
     }
 
+    const isEdit = !!form.id;
+
     try {
       setLoading(true);
-      const url = form.id
+
+      const url = isEdit
         ? `${API_BASE}/api/products-admin/${form.id}`
         : `${API_BASE}/api/products-admin`;
-      const method = form.id ? "PUT" : "POST";
+      const method = isEdit ? "PUT" : "POST";
 
-      // send form as JSON; flavors/addons are full objects as required
       const payload = {
         name: form.name,
         base_price: Number(form.base_price),
-        image: form.image, // could be a URL or path; your backend handles image upload separately below
+        image: form.image,
         sizes: form.sizes || [],
         flavors: form.flavors || [],
         addons: form.addons || [],
+        options: {
+          hasCakeDetails: !!form.hasCakeDetails,
+          hasCupcakeDetails: !!form.hasCupcakeDetails,
+        },
       };
 
       const res = await fetch(url, {
@@ -187,6 +229,7 @@ export default function ProductsManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) throw new Error("Save failed");
 
       let productId = form.id;
@@ -195,6 +238,7 @@ export default function ProductsManagement() {
         productId = data.id;
       }
 
+      // upload main image if present
       if (imageFile && productId) {
         const fd = new FormData();
         fd.append("image", imageFile);
@@ -204,24 +248,34 @@ export default function ProductsManagement() {
         });
       }
 
-      // 📌 Upload gallery images
-if (galleryFiles.length > 0 && productId) {
-  const galleryForm = new FormData();
-  galleryFiles.forEach(file => {
-    galleryForm.append("gallery", file);
-  });
+      // upload gallery files (append)
+      if (galleryFiles.length > 0 && productId) {
+        const galleryForm = new FormData();
+        galleryFiles.forEach((file) => {
+          galleryForm.append("gallery", file);
+        });
 
-  await fetch(`${API_BASE}/api/products/${productId}/gallery`, {
-    method: "POST",
-    body: galleryForm,
-  });
-}
+        await fetch(`${API_BASE}/api/products/${productId}/gallery`, {
+          method: "POST",
+          body: galleryForm,
+        });
+      }
 
+      // 🔁 refresh gallery for this product so you see new images on edit
+      if (productId) {
+        await fetchGallery(productId);
+      }
 
+      // 🔁 refresh products list
+      await fetchProducts();
 
-
-      fetchProducts();
-      resetForm();
+      // 👇 only reset everything if this was a NEW product
+      if (!isEdit) {
+        resetForm();
+      } else {
+        // on edit, just clear the "new uploads" field
+        setGalleryFiles([]);
+      }
     } catch (err) {
       console.error(err);
       alert("Error saving product");
@@ -229,6 +283,30 @@ if (galleryFiles.length > 0 && productId) {
       setLoading(false);
     }
   }
+
+  async function handleDeleteGallery(imgId) {
+    if (!form.id) return;
+    if (!window.confirm("Remove this gallery image?")) return;
+
+    try {
+      await fetch(
+        `${API_BASE}/api/products/${form.id}/gallery/${imgId}`,
+        { method: "DELETE" }
+      );
+      // refresh after delete
+      fetchGallery(form.id);
+    } catch (err) {
+      console.error("Failed to delete gallery image:", err);
+      alert("Failed to delete gallery image");
+    }
+  }
+
+
+
+
+
+
+
 
   async function handleDelete(id) {
     if (!window.confirm("Delete this product?")) return;
@@ -422,41 +500,54 @@ if (galleryFiles.length > 0 && productId) {
           <>
             {/* PRODUCT FORM */}
             <form
-              onSubmit={handleSubmit}
-              className="bg-white shadow-md p-4 mb-6 flex flex-wrap items-center gap-4 rounded-md"
-            >
-              <input
-                type="text"
-                name="name"
-                placeholder="Product Name"
-                value={form.name}
-                onChange={handleInput}
-                className="border px-3 py-2 w-[200px] mr-[8px] "
-              />
-              <input
-                type="text"
-                name="base_price"
-                placeholder="Base Price (₱)"
-                value={form.base_price}
-                onChange={handleInput}
-                className="border px-3 py-2 w-[200px] mr-[8px]"
-              />
+  onSubmit={handleSubmit}
+  className="bg-white shadow-md p-4 mb-6 flex flex-wrap items-start gap-4 rounded-md"
+>
+  {/* NAME */}
+  <input
+    type="text"
+    name="name"
+    placeholder="Product Name"
+    value={form.name}
+    onChange={handleInput}
+    className="border px-3 py-2 w-[400px]"
+  />
 
-              <div className="flex flex-col items-start">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="border px-2 py-1 text-sm w-[200px] mr-[8px]"
-                />
-                {form.image && (
-                  <img
-                    src={form.image}
-                    alt="Preview"
-                    className="w-14 h-14 object-cover rounded-md mt-2 border mr-[8px]"
-                  />
-                )}
-              </div>
+  {/* PRICE */}
+  <input
+  type="number"
+  name="base_price"
+  placeholder="Base Price (₱)"
+  value={form.base_price}
+  onChange={handleInput}
+  step="0.01"      // allow decimals like 650.50
+  min="0"         // (optional) don’t allow negatives
+  className="border px-3 py-2 w-[200px]"
+/>
+
+
+  {/* ⭐ MAIN IMAGE UPLOAD (NOW UNDER NAME + PRICE) */}
+  <div className="flex flex-col items-start w-full mt-2">
+    <label className="text-sm font-semibold text-[#332601] mb-1">
+      Main Product Image
+    </label>
+
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleImageUpload}
+      className="border px-2 py-1 text-sm w-[250px]"
+    />
+
+    {form.image && (
+      <img
+        src={form.image}
+        alt="Preview"
+        className="w-[200px] h-[200px] object-cover rounded-md mt-2 border"
+      />
+    )}
+  </div>
+
 
 
               {/* GALLERY IMAGES UPLOAD (multiple) */}
@@ -491,7 +582,7 @@ if (galleryFiles.length > 0 && productId) {
 
           <img
             src={`${API_BASE}/api/gallery/${img.id}`}
-            className="w-20 h-20 object-cover rounded border"
+            className="w-[200px] h-[200px] object-cover rounded border"
           />
 
           <button
@@ -515,11 +606,15 @@ if (galleryFiles.length > 0 && productId) {
 
     <div className="flex flex-wrap gap-3">
       {galleryFiles.map((file, index) => (
-        <div key={index} className="relative w-20 h-20">
-          
+        <div
+          key={index}
+          className="relative w-[200px] h-[200px] rounded overflow-hidden border"
+        >
           <img
             src={URL.createObjectURL(file)}
-            className="w-20 h-20 object-cover rounded border"
+            alt={`New image ${index + 1}`}
+            className="w-full h-full object-cover"
+            style={{ display: "block" }} // extra safety vs global img styles
           />
 
           {/* DELETE BUTTON */}
@@ -537,6 +632,7 @@ if (galleryFiles.length > 0 && productId) {
     </div>
   </div>
 )}
+
 
 
 
@@ -604,6 +700,32 @@ if (galleryFiles.length > 0 && productId) {
                 </div>
               </div>
 
+              {/* PRODUCT TYPE TOGGLES */}
+              <div className="w-full mt-3 flex flex-col gap-3">
+
+  <label className="flex items-center gap-2 text-sm text-[#332601]">
+    <input
+      type="checkbox"
+      checked={form.hasCakeDetails}
+      onChange={(e) =>
+        setForm((f) => ({ ...f, hasCakeDetails: e.target.checked }))
+      }
+    />
+    <span>Show “Cake Details” section on product page</span>
+  </label>
+
+  <label className="flex items-center gap-2 text-sm text-[#332601]">
+    <input
+      type="checkbox"
+      checked={form.hasCupcakeDetails}
+      onChange={(e) =>
+        setForm((f) => ({ ...f, hasCupcakeDetails: e.target.checked }))
+      }
+    />
+    <span>Show “Cupcake Details” section on product page</span>
+  </label>
+</div>
+
               <div className="w-full flex gap-2 mt-3">
                 <button
                   type="submit"
@@ -620,7 +742,8 @@ if (galleryFiles.length > 0 && productId) {
                 >
                   Reset
                 </button>
-              </div>
+              </div>   
+
             </form>
 
             {/* PRODUCTS GRID — now 4 per row, no white bg or borders */}
@@ -678,8 +801,9 @@ if (galleryFiles.length > 0 && productId) {
                         {p.name}
                       </h2>
                       <p className="text-[13px] text-[#4A3600] mb-3 font-medium">
-                        From ₱{p.base_price}.00 PHP
-                      </p>
+  From ₱{p.base_price} PHP
+</p>
+
 
 
 
@@ -825,7 +949,10 @@ if (galleryFiles.length > 0 && productId) {
                 <h2 className="text-2xl font-bold text-gray-800 mb-3">
                   {selectedProduct.name}
                 </h2>
-                <p className="text-gray-700 mb-2">₱{selectedProduct.base_price}.00</p>
+                <p className="text-gray-700 mb-2">
+  ₱{selectedProduct.base_price}
+</p>
+
                 <div className="flex justify-center mt-4 gap-3">
                   <button
                     onClick={() => {
